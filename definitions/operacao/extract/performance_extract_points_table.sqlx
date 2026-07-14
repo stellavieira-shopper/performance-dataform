@@ -107,13 +107,13 @@ WITH base AS (
 
 base2 AS (
   SELECT b.*,
-    DATETIME(b.start_ts, 'America/Sao_Paulo') AS activity_start,
-    DATETIME(b.end_ts,   'America/Sao_Paulo') AS activity_end,
+    DATETIME(b.start_ts) AS activity_start,
+    DATETIME(b.end_ts)   AS activity_end,
     TIMESTAMP_DIFF(b.end_ts, b.start_ts, SECOND) / 3600.0 AS activity_worked_hours,
     DATE(CASE
-      WHEN EXTRACT(HOUR FROM DATETIME(b.start_ts, 'America/Sao_Paulo')) >= 22 THEN DATETIME_ADD(DATETIME(b.start_ts, 'America/Sao_Paulo'), INTERVAL 1 DAY)
-      WHEN EXTRACT(HOUR FROM DATETIME(b.start_ts, 'America/Sao_Paulo')) <  6  THEN DATETIME_SUB(DATETIME(b.start_ts, 'America/Sao_Paulo'), INTERVAL 1 DAY)
-      ELSE DATETIME(b.start_ts, 'America/Sao_Paulo')
+      WHEN EXTRACT(HOUR FROM DATETIME(b.start_ts)) >= 22 THEN DATETIME_ADD(DATETIME(b.start_ts), INTERVAL 1 DAY)
+      WHEN EXTRACT(HOUR FROM DATETIME(b.start_ts)) <  6  THEN DATETIME_SUB(DATETIME(b.start_ts), INTERVAL 1 DAY)
+      ELSE DATETIME(b.start_ts)
     END) AS reference_date
   FROM base b WHERE b.start_ts IS NOT NULL AND b.end_ts IS NOT NULL
 ),
