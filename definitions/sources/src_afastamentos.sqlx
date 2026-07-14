@@ -1,0 +1,23 @@
+config {
+  type: "table",
+  schema: "Ranking_Performance",
+  name: "src_afastamentos",
+  description: "Afastamentos de colaboradores. External table do Google Sheets.",
+  bigquery: {
+    externalDataConfiguration: {
+      sourceFormat: "GOOGLE_SHEETS",
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1F9dzbIUmahYUMJ0mIEnlSB27DtDiI9QpDUxZcY6jSAw/edit?gid=0#gid=0"],
+      googleSheetsOptions: { range: "AFASTAMENTOS!A2:E", skipLeadingRows: 0 },
+      ignoreUnknownValues: true,
+      schema: { fields: [
+        { name: "Nome",        type: "STRING" },
+        { name: "MatrIcula",   type: "INT64" },
+        { name: "Motivo",      type: "STRING" },
+        { name: "Data_inicio", type: "DATE" },
+        { name: "Data_final",  type: "DATE" }
+      ]}
+    }
+  }
+}
+
+SELECT * FROM ${self()}

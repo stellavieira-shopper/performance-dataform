@@ -1,0 +1,23 @@
+config {
+  type: "table",
+  schema: "Ranking_Performance",
+  name: "src_pre_expedicao",
+  description: "Pré-expedição — pedidos mapeados por colaborador. External table do Google Sheets.",
+  bigquery: {
+    externalDataConfiguration: {
+      sourceFormat: "GOOGLE_SHEETS",
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1dOW-CtDWStVwqGxIPb2dgJ4UX2pfkcE_5mti8gfw-vI/edit?gid=1471731246#gid=1471731246"],
+      googleSheetsOptions: { range: "Pré-Expedição!A2:E", skipLeadingRows: 0 },
+      ignoreUnknownValues: true,
+      schema: { fields: [
+        { name: "Data",                  type: "DATE" },
+        { name: "NOME",                  type: "STRING" },
+        { name: "Matricula",             type: "INT64" },
+        { name: "Qtd_pedidos_mapeados",  type: "INT64" },
+        { name: "metric_type",           type: "STRING" }
+      ]}
+    }
+  }
+}
+
+SELECT * FROM ${self()}

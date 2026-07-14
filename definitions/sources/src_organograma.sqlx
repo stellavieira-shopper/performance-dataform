@@ -1,0 +1,32 @@
+config {
+  type: "table",
+  schema: "Ranking_Performance",
+  name: "src_organograma",
+  description: "Organograma de colaboradores. External table do Google Sheets.",
+  bigquery: {
+    externalDataConfiguration: {
+      sourceFormat: "GOOGLE_SHEETS",
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1dOW-CtDWStVwqGxIPb2dgJ4UX2pfkcE_5mti8gfw-vI/edit?gid=0#gid=0"],
+      googleSheetsOptions: { range: "Organograma!A1:N", skipLeadingRows: 0 },
+      ignoreUnknownValues: true,
+      schema: { fields: [
+        { name: "MATRICULA",   type: "INT64" },
+        { name: "NOME",        type: "STRING" },
+        { name: "AREA",        type: "STRING" },
+        { name: "SETOR",       type: "STRING" },
+        { name: "ATRIBUICAO",  type: "STRING" },
+        { name: "TURNO",       type: "STRING" },
+        { name: "CRACHA",      type: "STRING" },
+        { name: "ARMARIO",     type: "STRING" },
+        { name: "HORARIO",     type: "STRING" },
+        { name: "GESTOR",      type: "STRING" },
+        { name: "FOLGA_FIXA",  type: "STRING" },
+        { name: "FC",          type: "STRING" },
+        { name: "DOM",         type: "STRING" },
+        { name: "DATA_ADM",    type: "DATE" }
+      ]}
+    }
+  }
+}
+
+SELECT * FROM ${self()}

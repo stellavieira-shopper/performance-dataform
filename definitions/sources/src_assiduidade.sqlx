@@ -1,0 +1,33 @@
+config {
+  type: "table",
+  schema: "Ranking_Performance",
+  name: "src_assiduidade",
+  description: "Controle de assiduidade por colaborador. External table do Google Sheets.",
+  bigquery: {
+    externalDataConfiguration: {
+      sourceFormat: "GOOGLE_SHEETS",
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1VoNo2TgxqOzLRIhTzB1BR_d5rK328yVf1rpdrnADC-8/edit?gid=0#gid=0"],
+      googleSheetsOptions: { range: "Assiduidade!A2:O", skipLeadingRows: 0 },
+      ignoreUnknownValues: true,
+      schema: { fields: [
+        { name: "Nome",                type: "STRING" },
+        { name: "Matricula",           type: "INT64" },
+        { name: "Cargo",               type: "STRING" },
+        { name: "Data_de_Adm",         type: "DATE" },
+        { name: "Localizacao",         type: "STRING" },
+        { name: "Area",                type: "STRING" },
+        { name: "Setor",               type: "STRING" },
+        { name: "Atribuicao",          type: "STRING" },
+        { name: "Turno",               type: "STRING" },
+        { name: "Periodo",             type: "STRING" },
+        { name: "Horas_Trabalhadas",   type: "STRING" },
+        { name: "Afastamentos",        type: "STRING" },
+        { name: "Ausencias",           type: "STRING" },
+        { name: "Direito_a_Premiacao", type: "STRING" },
+        { name: "data_inicio_periodo", type: "DATE" }
+      ]}
+    }
+  }
+}
+
+SELECT * FROM ${self()}

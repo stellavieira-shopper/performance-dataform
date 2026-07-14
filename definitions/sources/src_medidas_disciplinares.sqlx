@@ -1,0 +1,34 @@
+config {
+  type: "table",
+  schema: "Ranking_Performance",
+  name: "src_medidas_disciplinares",
+  description: "Medidas disciplinares por colaborador. External table do Google Sheets.",
+  bigquery: {
+    externalDataConfiguration: {
+      sourceFormat: "GOOGLE_SHEETS",
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1ILfz2bTTkbvqESwVKkRER-tebXaJqXH9ehj8fwzhmXw/edit?gid=0#gid=0"],
+      googleSheetsOptions: { range: "Medidas!A2:P", skipLeadingRows: 0 },
+      ignoreUnknownValues: true,
+      schema: { fields: [
+        { name: "MATRICULA",       type: "INT64" },
+        { name: "NOME",            type: "STRING" },
+        { name: "AREA",            type: "STRING" },
+        { name: "SETOR",           type: "STRING" },
+        { name: "ATRIBUICAO",      type: "STRING" },
+        { name: "TURNO",           type: "STRING" },
+        { name: "UNIDADE",         type: "STRING" },
+        { name: "GRAU_DA_MEDIDA",  type: "STRING" },
+        { name: "MOTIVO",          type: "STRING" },
+        { name: "JUSTIFICATIVA",   type: "STRING" },
+        { name: "DATA_OCORRENCIA", type: "DATE" },
+        { name: "DATA_SUSPENSAO",  type: "DATE" },
+        { name: "VALIDADE",        type: "DATE" },
+        { name: "STATUS",          type: "STRING" },
+        { name: "APLICADA",        type: "BOOL" },
+        { name: "INDEVIDA",        type: "BOOL" }
+      ]}
+    }
+  }
+}
+
+SELECT * FROM ${self()}

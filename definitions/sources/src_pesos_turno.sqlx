@@ -1,0 +1,32 @@
+config {
+  type: "table",
+  schema: "Ranking_Performance",
+  name: "src_pesos_turno",
+  description: "Pesos por turno e FC para cada métrica. External table do Google Sheets.",
+  bigquery: {
+    externalDataConfiguration: {
+      sourceFormat: "GOOGLE_SHEETS",
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1R-CpFzAQu3Hn69v4Q3SO6d7pH3m3La0uWDHqNLSJjAo/edit?gid=1444521241#gid=1444521241"],
+      googleSheetsOptions: { range: "pesos_turno!A2:N", skipLeadingRows: 0 },
+      ignoreUnknownValues: true,
+      schema: { fields: [
+        { name: "METRIC_DESCRIPTION",  type: "STRING" },
+        { name: "METRIC_TYPE",         type: "STRING" },
+        { name: "FC1_MANHA",           type: "FLOAT64" },
+        { name: "FC1_TARDE",           type: "FLOAT64" },
+        { name: "FC1_NOITE",           type: "FLOAT64" },
+        { name: "FC2_MANHA",           type: "FLOAT64" },
+        { name: "FC2_TARDE",           type: "FLOAT64" },
+        { name: "FC2_INTERMEDIARIO",   type: "FLOAT64" },
+        { name: "FC2_NOITE",           type: "FLOAT64" },
+        { name: "FC3_MANHA",           type: "FLOAT64" },
+        { name: "FC3_TARDE",           type: "FLOAT64" },
+        { name: "FC3_NOITE",           type: "FLOAT64" },
+        { name: "DATA_INICIAL",        type: "DATE" },
+        { name: "DATA_FINAL",          type: "DATE" }
+      ]}
+    }
+  }
+}
+
+SELECT * FROM ${self()}

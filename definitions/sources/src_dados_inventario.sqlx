@@ -1,0 +1,23 @@
+config {
+  type: "table",
+  schema: "Ranking_Performance",
+  name: "src_dados_inventario",
+  description: "Dados de inventário por colaborador. External table do Google Sheets.",
+  bigquery: {
+    externalDataConfiguration: {
+      sourceFormat: "GOOGLE_SHEETS",
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1dOW-CtDWStVwqGxIPb2dgJ4UX2pfkcE_5mti8gfw-vI/edit#gid=681218563"],
+      googleSheetsOptions: { range: "Inventário", skipLeadingRows: 0 },
+      ignoreUnknownValues: true,
+      schema: { fields: [
+        { name: "Data",               type: "DATE" },
+        { name: "cod_matricula",      type: "INT64" },
+        { name: "qtd_inventario",     type: "FLOAT64" },
+        { name: "metric_description", type: "STRING" },
+        { name: "metric_type",        type: "STRING" }
+      ]}
+    }
+  }
+}
+
+SELECT * FROM ${self()}
