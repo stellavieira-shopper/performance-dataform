@@ -1,13 +1,13 @@
-config {
+﻿config {
   type: "view",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_erros_gestao_estoque",
-  description: "Erros de gestão de estoque por colaborador/semana, com penalidade de pontos."
+  description: "Erros de gestÃ£o de estoque por colaborador/semana, com penalidade de pontos."
 }
 
 WITH erros_dedup AS (
   SELECT MATRICULA, NOME, FC, DATA, IMPACTO_ERRO
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.DETRATORAS GESTÃO DE ESTOQUE`
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.DETRATORAS GESTÃƒO DE ESTOQUE`
   WHERE MATRICULA IS NOT NULL
     AND DATA IS NOT NULL
     AND UPPER(TRIM(IMPACTO_ERRO)) NOT IN ('RUPTURA', 'PERDA')
@@ -40,3 +40,4 @@ SELECT
   END AS penalidade_pts,
   qtd_erros > 3 AS zerado
 FROM erros_semana
+

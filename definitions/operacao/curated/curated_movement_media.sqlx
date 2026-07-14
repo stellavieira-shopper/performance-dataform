@@ -1,8 +1,8 @@
-config {
+﻿config {
   type: "view",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_movement_media",
-  description: "Média IQR por SKU e contexto de movimentação (REPOSICAO, RECEBIMENTO, PK)."
+  description: "MÃ©dia IQR por SKU e contexto de movimentaÃ§Ã£o (REPOSICAO, RECEBIMENTO, PK)."
 }
 
 WITH ValoresReposicao AS (
@@ -80,3 +80,4 @@ FROM SemOutliers
 GROUP BY
   sku_id, movement_group, restock_list_level, restock_list_type,
   receivement_category, is_receivement_fresh, suggested_storage_receivement, movement_type
+

@@ -1,6 +1,6 @@
-config {
+﻿config {
   type: "table",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "src_afastamentos",
   description: "Afastamentos de colaboradores. External table do Google Sheets.",
   bigquery: {
@@ -21,3 +21,4 @@ config {
 }
 
 SELECT * FROM ${self()}
+

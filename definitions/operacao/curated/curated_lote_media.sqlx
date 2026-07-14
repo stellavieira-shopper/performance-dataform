@@ -1,15 +1,15 @@
-config {
+﻿config {
   type: "view",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_lote_media",
-  description: "Média IQR de quantidade movimentada por SKU (entradas de abastecimento via movimentação)."
+  description: "MÃ©dia IQR de quantidade movimentada por SKU (entradas de abastecimento via movimentaÃ§Ã£o)."
 }
 
 WITH ValoresValidos AS (
   SELECT m.sku_id AS id_modelo, m.item_qty AS quantidade
   FROM `shopper-datalakehouse-prod.inventory.wss_movimentacoes_n2` AS m
   WHERE m.item_qty > 0
-    AND m.justification LIKE '%Entrada para abastecimento (movimentação)%'
+    AND m.justification LIKE '%Entrada para abastecimento (movimentaÃ§Ã£o)%'
 ),
 CalculoIQR AS (
   SELECT *,
@@ -28,3 +28,4 @@ SELECT
   AVG(quantidade) AS media_movimentada_sem_outliers
 FROM DadosSemOutliers
 GROUP BY id_modelo
+

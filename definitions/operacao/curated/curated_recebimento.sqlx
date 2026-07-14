@@ -1,6 +1,6 @@
-config {
+﻿config {
   type: "view",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_recebimento",
   description: "Score de recebimento por colaborador/SKU. Depende de curated_caixaria.",
   dependencies: ["curated_caixaria"]
@@ -74,3 +74,4 @@ SELECT
   media_caixaria_grupo, caixaria_final,
   LEAST(2.0, SAFE_DIVIDE(qtd_pontuada, caixaria_final)) AS score_recebimento
 FROM Calculado
+

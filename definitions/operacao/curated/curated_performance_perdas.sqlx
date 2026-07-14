@@ -1,6 +1,6 @@
-config {
+﻿config {
   type: "table",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_performance_perdas",
   description: "Perdas consolidadas por colaborador. External table do Google Sheets.",
   bigquery: {
@@ -25,3 +25,4 @@ config {
 }
 
 SELECT * FROM ${self()}
+

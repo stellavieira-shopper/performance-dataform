@@ -1,13 +1,13 @@
-config {
+﻿config {
   type: "table",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_expedicao",
-  description: "Expedição tratada com volumes por romaneio e flag SMD. External table do Google Sheets.",
+  description: "ExpediÃ§Ã£o tratada com volumes por romaneio e flag SMD. External table do Google Sheets.",
   bigquery: {
     externalDataConfiguration: {
       sourceFormat: "GOOGLE_SHEETS",
       sourceUris: ["https://docs.google.com/spreadsheets/d/1dOW-CtDWStVwqGxIPb2dgJ4UX2pfkcE_5mti8gfw-vI/edit?gid=1207787385#gid=1207787385"],
-      googleSheetsOptions: { range: "Expedição 2.0!A2:E", skipLeadingRows: 0 },
+      googleSheetsOptions: { range: "ExpediÃ§Ã£o 2.0!A2:E", skipLeadingRows: 0 },
       ignoreUnknownValues: true,
       schema: { fields: [
         { name: "MATRICULA",  type: "INT64" },
@@ -21,3 +21,4 @@ config {
 }
 
 SELECT * FROM ${self()}
+

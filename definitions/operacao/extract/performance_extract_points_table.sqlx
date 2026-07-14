@@ -1,8 +1,8 @@
-config {
+﻿config {
   type: "incremental",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "performance_extract_points_table",
-  description: "Extract de pontos ponderados por colaborador/dia. Tabela principal consumida pelo Ranking Semanal e Performance Liderança.",
+  description: "Extract de pontos ponderados por colaborador/dia. Tabela principal consumida pelo Ranking Semanal e Performance LideranÃ§a.",
   tags: ["extract", "performance"],
   bigquery: {
     partitionBy: "reference_date",
@@ -67,16 +67,16 @@ WITH base AS (
     CASE
       WHEN rm.metric_code IN ('MOVEMENT_PICKUP', 'MOVEMENT_RESTOCK') THEN
         CASE
-          WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'Reposição - Mercearia'
-            THEN CONCAT('REPOSIÇÃO MERCEARIA: ', UPPER(JSON_VALUE(rm.details, '$.restock_list_level')))
-          WHEN JSON_VALUE(rm.details, '$.restock_list_type') IN ('Retorno Picking Secos', 'Picking Secos') THEN 'REPOSIÇÃO PICKING SECOS'
-          WHEN JSON_VALUE(rm.details, '$.restock_list_type') IN ('Check-in - Mercearia', 'Check-in - Fresh') THEN 'REPOSIÇÃO CHECKIN'
-          WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'Transferência' THEN 'REPOSIÇÃO TRANSFERÊNCIA'
-          WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'Reposição - Fresh' THEN 'REPOSIÇÃO FRESH'
-          ELSE 'REPOSIÇÃO'
+          WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'ReposiÃ§Ã£o - Mercearia'
+            THEN CONCAT('REPOSIÃ‡ÃƒO MERCEARIA: ', UPPER(JSON_VALUE(rm.details, '$.restock_list_level')))
+          WHEN JSON_VALUE(rm.details, '$.restock_list_type') IN ('Retorno Picking Secos', 'Picking Secos') THEN 'REPOSIÃ‡ÃƒO PICKING SECOS'
+          WHEN JSON_VALUE(rm.details, '$.restock_list_type') IN ('Check-in - Mercearia', 'Check-in - Fresh') THEN 'REPOSIÃ‡ÃƒO CHECKIN'
+          WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'TransferÃªncia' THEN 'REPOSIÃ‡ÃƒO TRANSFERÃŠNCIA'
+          WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'ReposiÃ§Ã£o - Fresh' THEN 'REPOSIÃ‡ÃƒO FRESH'
+          ELSE 'REPOSIÃ‡ÃƒO'
         END
       WHEN rm.metric_code IN ('MOVEMENT_PK', 'MOVEMENT_TRANSFER') THEN
-        CASE WHEN JSON_VALUE(rm.details, '$.movement_type') IS NULL THEN 'REPOSIÇÃO TRANSFERÊNCIA RECEBIDA' ELSE 'REPOSIÇÃO PK' END
+        CASE WHEN JSON_VALUE(rm.details, '$.movement_type') IS NULL THEN 'REPOSIÃ‡ÃƒO TRANSFERÃŠNCIA RECEBIDA' ELSE 'REPOSIÃ‡ÃƒO PK' END
       WHEN pm.metric_description = 'SEGUNDA CONFERENCIA FRESCOS'   THEN 'REBIPAGEM FRESH'
       WHEN pm.metric_description = 'SEGUNDA CONFERENCIA MERCEARIA' THEN 'REBIPAGEM MERCEARIA'
       ELSE pm.metric_description
@@ -156,8 +156,8 @@ calc_score AS (
     ON cx.sku_id=b.sku_id
     AND b.metric_code IN ('MOVEMENT_PICKUP','MOVEMENT_RESTOCK','STOCK_RECEIVEMENT','MOVEMENT_PK','MOVEMENT_TRANSFER')
   WHERE b.metric_code NOT IN ('MOVEMENT_PICKUP','MOVEMENT_RESTOCK','STOCK_RECEIVEMENT')
-    AND b.metric_description NOT IN ('VOLUMES EXPEDIDOS','ITENS NÃO PICKADOS EM FRESH MAS COM ESTOQUE POSITIVO')
-    AND NOT (CAST(b.is_same_day AS BOOL) IS TRUE AND b.metric_description IN ('ITENS NÃO PICKADOS EM MERCEARIA','ITENS NÃO PICKADOS EM FRESH','ITENS NÃO PICKADOS EM MERCEARIA MAS COM ESTOQUE POSITIVO'))
+    AND b.metric_description NOT IN ('VOLUMES EXPEDIDOS','ITENS NÃƒO PICKADOS EM FRESH MAS COM ESTOQUE POSITIVO')
+    AND NOT (CAST(b.is_same_day AS BOOL) IS TRUE AND b.metric_description IN ('ITENS NÃƒO PICKADOS EM MERCEARIA','ITENS NÃƒO PICKADOS EM FRESH','ITENS NÃƒO PICKADOS EM MERCEARIA MAS COM ESTOQUE POSITIVO'))
   QUALIFY ROW_NUMBER() OVER (PARTITION BY b.row_id ORDER BY (m.end_range_qty-m.start_range_qty) ASC, m.start_range_qty ASC) = 1
 ),
 
@@ -403,7 +403,7 @@ c_erros_gestao AS (
     CAST(NULL AS INT64)   AS sku_id,
     CAST(NULL AS BOOL)    AS is_same_day,
     CAST(NULL AS INT64)   AS canal_venda,
-    'ERRO GESTÃO DE ESTOQUE'                AS metric_description,
+    'ERRO GESTÃƒO DE ESTOQUE'                AS metric_description,
     CAST(NULL AS STRING)  AS restock_list_level,
     CAST(NULL AS STRING)  AS restock_list_type,
     CAST(NULL AS STRING)  AS receivement_category,
@@ -486,14 +486,14 @@ SELECT
     eu.points
     * COALESCE(
         CASE
-          WHEN org.fc='FC1' AND org.turno_principal='MANHÃ'            THEN pt.FC1_MANHA
+          WHEN org.fc='FC1' AND org.turno_principal='MANHÃƒ'            THEN pt.FC1_MANHA
           WHEN org.fc='FC1' AND org.turno_principal='TARDE'            THEN pt.FC1_TARDE
           WHEN org.fc='FC1' AND org.turno_principal='NOITE'            THEN pt.FC1_NOITE
-          WHEN org.fc='FC2' AND org.turno_principal='MANHÃ'            THEN pt.FC2_MANHA
+          WHEN org.fc='FC2' AND org.turno_principal='MANHÃƒ'            THEN pt.FC2_MANHA
           WHEN org.fc='FC2' AND org.turno_principal='TARDE'            THEN pt.FC2_TARDE
           WHEN org.fc='FC2' AND org.turno_principal='NOITE'            THEN pt.FC2_NOITE
           WHEN org.fc='FC2' AND org.turno_principal LIKE '%INTERMEDI%' THEN pt.FC2_INTERMEDIARIO
-          WHEN org.fc='FC3' AND org.turno_principal='MANHÃ'            THEN pt.FC3_MANHA
+          WHEN org.fc='FC3' AND org.turno_principal='MANHÃƒ'            THEN pt.FC3_MANHA
           WHEN org.fc='FC3' AND org.turno_principal='TARDE'            THEN pt.FC3_TARDE
           WHEN org.fc='FC3' AND org.turno_principal='NOITE'            THEN pt.FC3_NOITE
         END, 1.0)
@@ -505,3 +505,4 @@ INNER JOIN organograma_cache AS org ON CAST(eu.registration_number AS STRING) = 
 LEFT JOIN pesos_turno_cache AS pt
   ON UPPER(TRIM(CASE WHEN eu.source_system='DARK_STORE' THEN 'ITENS PICKADOS EM FRESH' ELSE eu.metric_description END)) = pt.metric_key
 WHERE eu.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 15 DAY)
+

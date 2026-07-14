@@ -1,6 +1,6 @@
-config {
+﻿config {
   type: "table",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_caixaria",
   description: "Caixaria ideal por SKU. External table apontando direto para o Google Sheets de Caixaria Recebimento.",
   bigquery: {
@@ -32,3 +32,4 @@ SELECT
 FROM ${self()}
 WHERE id_modelo IS NOT NULL
   AND caixaria  IS NOT NULL
+

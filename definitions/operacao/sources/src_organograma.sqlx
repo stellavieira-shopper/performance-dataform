@@ -1,6 +1,6 @@
-config {
+﻿config {
   type: "table",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "src_organograma",
   description: "Organograma de colaboradores. External table do Google Sheets.",
   bigquery: {
@@ -30,3 +30,4 @@ config {
 }
 
 SELECT * FROM ${self()}
+

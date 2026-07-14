@@ -1,6 +1,6 @@
-config {
+﻿config {
   type: "table",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "src_medidas_disciplinares",
   description: "Medidas disciplinares por colaborador. External table do Google Sheets.",
   bigquery: {
@@ -32,3 +32,4 @@ config {
 }
 
 SELECT * FROM ${self()}
+

@@ -1,6 +1,6 @@
-config {
+﻿config {
   type: "table",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "src_assiduidade",
   description: "Controle de assiduidade por colaborador. External table do Google Sheets.",
   bigquery: {
@@ -31,3 +31,4 @@ config {
 }
 
 SELECT * FROM ${self()}
+

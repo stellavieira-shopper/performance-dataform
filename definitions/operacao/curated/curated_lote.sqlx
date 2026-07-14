@@ -1,6 +1,6 @@
-config {
+﻿config {
   type: "view",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_lote",
   description: "Score de mapeamento de lote por colaborador. Depende de curated_lote_media e curated_caixaria.",
   dependencies: ["curated_lote_media", "curated_caixaria"]
@@ -17,8 +17,8 @@ WITH BaseCalculo AS (
     SAFE_CAST(u.registration_number AS INT64) AS cod_matricula,
     u.user_name,
     CASE
-      WHEN loc.is_gondola = 1 AND loc.is_fresh = 1 THEN 'MAPEAMENTO DE LOTE REPOSIÇÃO FRESH'
-      WHEN loc.is_gondola = 1 AND loc.is_fresh = 0 THEN 'MAPEAMENTO DE LOTE REPOSIÇÃO MERCEARIA'
+      WHEN loc.is_gondola = 1 AND loc.is_fresh = 1 THEN 'MAPEAMENTO DE LOTE REPOSIÃ‡ÃƒO FRESH'
+      WHEN loc.is_gondola = 1 AND loc.is_fresh = 0 THEN 'MAPEAMENTO DE LOTE REPOSIÃ‡ÃƒO MERCEARIA'
       WHEN loc.is_gondola = 0 AND loc.is_fresh = 1 THEN 'MAPEAMENTO DE LOTE RECEBIMENTO FRESH'
       ELSE                                               'MAPEAMENTO DE LOTE RECEBIMENTO MERCEARIA'
     END AS descricao_atividade
@@ -29,8 +29,8 @@ WITH BaseCalculo AS (
   LEFT JOIN ${ref("curated_caixaria")} AS cx    ON m.sku_id = cx.sku_id
   LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
     ON u.user_id = SAFE_CAST(m.created_by AS INT64)
-  WHERE m.justification LIKE '%Entrada para abastecimento (movimentação)%'
-     OR m.justification LIKE '%Entrada por abastecimento (movimentação de coleta)%'
+  WHERE m.justification LIKE '%Entrada para abastecimento (movimentaÃ§Ã£o)%'
+     OR m.justification LIKE '%Entrada por abastecimento (movimentaÃ§Ã£o de coleta)%'
 )
 SELECT
   T_Score.* EXCEPT (media_movimentada_sem_outliers, fator_caixaria, caixaria),
@@ -52,3 +52,4 @@ FROM (
     END AS fator_caixaria
   FROM BaseCalculo
 ) AS T_Score
+

@@ -1,8 +1,8 @@
-config {
+﻿config {
   type: "view",
-  schema: "Ranking_Performance",
+  schema: "darkstore",
   name: "curated_dark_store",
-  description: "Picking de pedidos de lojinha (dark store) por colaborador. Pedidos com código terminando em N."
+  description: "Picking de pedidos de lojinha (dark store) por colaborador. Pedidos com cÃ³digo terminando em N."
 }
 
 WITH Esteira_Picking AS (
@@ -45,3 +45,4 @@ LEFT JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_itens_pedid
 WHERE p.order_code LIKE '%N'
   AND p.fulfillment_center_id NOT IN (1, 2, 3, 7)
 GROUP BY 1, 2, 3, 4, 5, 6, 7
+

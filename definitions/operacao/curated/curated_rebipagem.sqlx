@@ -1,6 +1,6 @@
-config {
+﻿config {
   type: "view",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_rebipagem",
   description: "Promotora de Rebipagem Hospital: pontos para o operador que realizou a re-bipagem do pedido."
 }
@@ -68,3 +68,4 @@ SELECT
   j.activity_worked_hours, j.reference_date,
   j.id_rebipagem, j.Fiscal, j.Criado_em
 FROM Joined AS j
+

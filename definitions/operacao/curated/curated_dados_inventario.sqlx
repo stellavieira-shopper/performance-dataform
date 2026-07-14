@@ -1,13 +1,13 @@
-config {
+﻿config {
   type: "table",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_dados_inventario",
-  description: "Dados de inventário por colaborador. External table do Google Sheets.",
+  description: "Dados de inventÃ¡rio por colaborador. External table do Google Sheets.",
   bigquery: {
     externalDataConfiguration: {
       sourceFormat: "GOOGLE_SHEETS",
       sourceUris: ["https://docs.google.com/spreadsheets/d/1dOW-CtDWStVwqGxIPb2dgJ4UX2pfkcE_5mti8gfw-vI/edit#gid=681218563"],
-      googleSheetsOptions: { range: "Inventário", skipLeadingRows: 0 },
+      googleSheetsOptions: { range: "InventÃ¡rio", skipLeadingRows: 0 },
       ignoreUnknownValues: true,
       schema: { fields: [
         { name: "Data",               type: "DATE" },
@@ -21,3 +21,4 @@ config {
 }
 
 SELECT * FROM ${self()}
+

@@ -1,8 +1,8 @@
-config {
+﻿config {
   type: "view",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_reposicao",
-  description: "Score de reposição por SKU/colaborador. Depende de curated_movement_media e curated_caixaria.",
+  description: "Score de reposiÃ§Ã£o por SKU/colaborador. Depende de curated_movement_media e curated_caixaria.",
   dependencies: ["curated_movement_media", "curated_caixaria"]
 }
 
@@ -18,17 +18,17 @@ WITH Base AS (
     u.user_name, rm.source_system, rm.start_timestamp, rm.end_timestamp, rm.metric_code,
     SAFE_CAST(rm.value AS FLOAT64) AS qty,
     CASE
-      WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'Reposição - Mercearia'
-        THEN CONCAT('REPOSIÇÃO MERCEARIA: ', UPPER(JSON_VALUE(rm.details, '$.restock_list_level')))
+      WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'ReposiÃ§Ã£o - Mercearia'
+        THEN CONCAT('REPOSIÃ‡ÃƒO MERCEARIA: ', UPPER(JSON_VALUE(rm.details, '$.restock_list_level')))
       WHEN JSON_VALUE(rm.details, '$.restock_list_type') IN ('Retorno Picking Secos', 'Picking Secos')
-        THEN 'REPOSIÇÃO PICKING SECOS'
+        THEN 'REPOSIÃ‡ÃƒO PICKING SECOS'
       WHEN JSON_VALUE(rm.details, '$.restock_list_type') IN ('Check-in - Mercearia', 'Check-in - Fresh')
-        THEN 'REPOSIÇÃO CHECKIN'
-      WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'Transferência'
-        THEN 'REPOSIÇÃO TRANSFERÊNCIA'
-      WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'Reposição - Fresh'
-        THEN 'REPOSIÇÃO FRESH'
-      ELSE 'REPOSIÇÃO'
+        THEN 'REPOSIÃ‡ÃƒO CHECKIN'
+      WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'TransferÃªncia'
+        THEN 'REPOSIÃ‡ÃƒO TRANSFERÃŠNCIA'
+      WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'ReposiÃ§Ã£o - Fresh'
+        THEN 'REPOSIÃ‡ÃƒO FRESH'
+      ELSE 'REPOSIÃ‡ÃƒO'
     END AS descricao_atividade
   FROM `shopper-datalakehouse-prod.performance.raw_measures_n2` AS rm
   INNER JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
@@ -65,3 +65,4 @@ FROM (
     END AS fator_caixaria
   FROM ComMediaECaixaria
 ) AS T
+

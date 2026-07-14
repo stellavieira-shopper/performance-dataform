@@ -1,8 +1,8 @@
-config {
+﻿config {
   type: "view",
-  schema: "Ranking_Performance",
+  schema: "operacao",
   name: "curated_reposicao_fora_processo",
-  description: "Reposições fora do processo (detratora). Depende de curated_caixaria e curated_movement_media.",
+  description: "ReposiÃ§Ãµes fora do processo (detratora). Depende de curated_caixaria e curated_movement_media.",
   dependencies: ["curated_caixaria", "curated_movement_media"]
 }
 
@@ -13,7 +13,7 @@ WITH BaseCalculo AS (
     SAFE_CAST(u.registration_number AS INT64) AS cod_matricula,
     u.user_name, cx.caixaria, med.media_sem_outliers,
     'MOVEMENT_RESTOCK_INVALID'   AS metric_code,
-    'REPOSIÇÃO FORA DO PROCESSO' AS descricao_atividade,
+    'REPOSIÃ‡ÃƒO FORA DO PROCESSO' AS descricao_atividade,
     'DETRATORA'                  AS metric_type
   FROM `shopper-datalakehouse-prod.inventory.wss_movimentacoes_n2` AS m
   LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
@@ -25,7 +25,7 @@ WITH BaseCalculo AS (
     WHERE movement_group = 'REPOSICAO'
     GROUP BY sku_id
   ) AS med ON med.sku_id = m.sku_id
-  WHERE m.justification = 'Entrada para abastecimento (reposição)'
+  WHERE m.justification = 'Entrada para abastecimento (reposiÃ§Ã£o)'
     AND m.movement_type = 'E'
     AND m.item_qty > 0
 ),
@@ -49,3 +49,4 @@ SELECT
       SAFE_DIVIDE(qty, COALESCE(media_sem_outliers, 1.0)) * fator_caixaria)
   END AS score_movimentacao
 FROM ComFatorCaixaria
+
