@@ -23,7 +23,7 @@ config {
     "src_pre_expedicao",
     "src_dados_inventario",
     "src_performance_perdas",
-    "src_expedicao_tratada"
+    "curated_expedicao"
   ]
 }
 
@@ -224,7 +224,7 @@ expedicao AS (
     CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64),
     SUM(SAFE_CAST(exp.VOLUMES AS FLOAT64))*1.0,
     CAST(NULL AS FLOAT64), CAST(exp.DATA AS DATE), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
-  FROM ${ref("src_expedicao_tratada")} AS exp
+  FROM ${ref("curated_expedicao")} AS exp
   LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
     ON u.registration_number = SAFE_CAST(exp.MATRICULA AS INT64)
   WHERE exp.MATRICULA IS NOT NULL AND exp.DATA IS NOT NULL
