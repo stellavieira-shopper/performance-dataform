@@ -3,5 +3,5 @@
   "defaultSchema": "operacao",
   "assertionSchema": "operacao_assertions",
   "defaultDatabase": "shopper-performance-prod",
-  "defaultLocation": "southamerica-east1"
+  "defaultLocation": "US"
 }
