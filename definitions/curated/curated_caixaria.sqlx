@@ -1,13 +1,34 @@
 config {
-  type: "view",
+  type: "table",
   schema: "Ranking_Performance",
   name: "curated_caixaria",
-  description: "Caixaria ideal por SKU, a partir da planilha Caixaria Recebimento."
+  description: "Caixaria ideal por SKU. External table apontando direto para o Google Sheets de Caixaria Recebimento.",
+  bigquery: {
+    externalDataConfiguration: {
+      sourceFormat: "GOOGLE_SHEETS",
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1axXV-8mjz2izch5dTgGACyvZrEFHpNn8QXdtikJmea8/edit?gid=1287881795#gid=1287881795"],
+      googleSheetsOptions: {
+        range: "Caixaria!A2:E",
+        skipLeadingRows: 0
+      },
+      ignoreUnknownValues: true,
+      schema: {
+        fields: [
+          { name: "id_modelo", type: "STRING" },
+          { name: "caixaria",  type: "STRING" },
+          { name: "vazio",     type: "STRING" },
+          { name: "col4",      type: "STRING" },
+          { name: "col5",      type: "STRING" }
+        ]
+      }
+    }
+  }
 }
 
 SELECT
   SAFE_CAST(id_modelo AS INT64) AS sku_id,
-  CAST(caixaria AS INT64)       AS caixaria
-FROM `shopper-datalakehouse-qa.Ranking_Performance.Caixaria Recebimento`
+  CAST(caixaria AS INT64)       AS caixaria,
+  vazio
+FROM ${self()}
 WHERE id_modelo IS NOT NULL
   AND caixaria  IS NOT NULL
