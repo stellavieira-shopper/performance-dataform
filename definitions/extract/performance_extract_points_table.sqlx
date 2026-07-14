@@ -22,7 +22,8 @@ config {
     "src_pesos_turno",
     "src_pre_expedicao",
     "src_dados_inventario",
-    "src_performance_perdas"
+    "src_performance_perdas",
+    "src_expedicao_tratada"
   ]
 }
 
@@ -213,34 +214,21 @@ espelho AS (
 
 expedicao AS (
   SELECT
-    SAFE_CAST(exp.registration_number AS INT64)  AS registration_number,
-    CAST(u.user_name AS STRING)                  AS user_name,
-    CAST(NULL AS DATETIME)                       AS activity_start,
-    CAST(NULL AS DATETIME)                       AS activity_end,
-    'EXPECTED_POINTS_DAILY'                      AS source_system,
-    'PROMOTORA'                                  AS metric_type,
-    CAST(exp.expected_points AS FLOAT64)         AS qty,
-    CAST(NULL AS STRING)                         AS order_code,
-    CAST(NULL AS INT64)                          AS sku_id,
-    CAST(NULL AS BOOL)                           AS is_same_day,
-    CAST(NULL AS INT64)                          AS canal_venda,
-    'PONTOS ESPERADOS'                           AS metric_description,
-    CAST(NULL AS STRING)                         AS restock_list_level,
-    CAST(NULL AS STRING)                         AS restock_list_type,
-    CAST(NULL AS STRING)                         AS receivement_category,
-    CAST(NULL AS BOOL)                           AS is_receivement_fresh,
-    CAST(NULL AS STRING)                         AS suggested_storage_receivement,
-    CAST(NULL AS STRING)                         AS movement_type,
-    CAST(NULL AS FLOAT64)                        AS score_movimentacao,
-    CAST(exp.expected_points AS FLOAT64)         AS points,
-    CAST(NULL AS FLOAT64)                        AS activity_worked_hours,
-    exp.reference_date,
-    CAST(NULL AS STRING)                         AS batch_id,
-    CAST([] AS ARRAY<INT64>)                     AS sku_ids
-  FROM `shopper-datalakehouse-prod.performance.performance_expected_points_daily_n2` AS exp
+    SAFE_CAST(exp.MATRICULA AS INT64), CAST(u.user_name AS STRING),
+    CAST(NULL AS DATETIME), CAST(NULL AS DATETIME),
+    'EXPEDICAO_TRATADA', 'PROMOTORA',
+    SUM(SAFE_CAST(exp.VOLUMES AS FLOAT64)),
+    CAST(NULL AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64),
+    IF(exp.E_SMD,'VOLUMES SMD EXPEDIDOS','VOLUMES EXPEDIDOS'),
+    CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL),
+    CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64),
+    SUM(SAFE_CAST(exp.VOLUMES AS FLOAT64))*1.0,
+    CAST(NULL AS FLOAT64), CAST(exp.DATA AS DATE), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
+  FROM ${ref("src_expedicao_tratada")} AS exp
   LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
-    ON u.registration_number = SAFE_CAST(exp.registration_number AS INT64)
-  WHERE exp.registration_number IS NOT NULL AND exp.reference_date IS NOT NULL
+    ON u.registration_number = SAFE_CAST(exp.MATRICULA AS INT64)
+  WHERE exp.MATRICULA IS NOT NULL AND exp.DATA IS NOT NULL
+  GROUP BY exp.MATRICULA, u.user_name, exp.DATA, exp.E_SMD
 ),
 
 pre_expedicao AS (
