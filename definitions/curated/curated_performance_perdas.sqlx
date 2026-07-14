@@ -1,7 +1,7 @@
 config {
   type: "table",
   schema: "Ranking_Performance",
-  name: "src_performance_perdas",
+  name: "curated_performance_perdas",
   description: "Perdas consolidadas por colaborador. External table do Google Sheets.",
   bigquery: {
     externalDataConfiguration: {

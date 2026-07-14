@@ -1,7 +1,7 @@
 config {
   type: "table",
   schema: "Ranking_Performance",
-  name: "src_dados_inventario",
+  name: "curated_dados_inventario",
   description: "Dados de inventário por colaborador. External table do Google Sheets.",
   bigquery: {
     externalDataConfiguration: {

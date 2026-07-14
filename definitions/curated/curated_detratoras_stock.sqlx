@@ -1,7 +1,7 @@
 config {
   type: "table",
   schema: "Ranking_Performance",
-  name: "src_detratoras_stock",
+  name: "curated_detratoras_stock",
   description: "Detratoras de stock por colaborador. External table do Google Sheets.",
   bigquery: {
     externalDataConfiguration: {
