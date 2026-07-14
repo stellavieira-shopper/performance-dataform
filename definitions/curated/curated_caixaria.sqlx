@@ -1,0 +1,13 @@
+config {
+  type: "view",
+  schema: "Ranking_Performance",
+  name: "curated_caixaria",
+  description: "Caixaria ideal por SKU, a partir da planilha Caixaria Recebimento."
+}
+
+SELECT
+  SAFE_CAST(id_modelo AS INT64) AS sku_id,
+  CAST(caixaria AS INT64)       AS caixaria
+FROM `shopper-datalakehouse-qa.Ranking_Performance.Caixaria Recebimento`
+WHERE id_modelo IS NOT NULL
+  AND caixaria  IS NOT NULL

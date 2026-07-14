@@ -1,0 +1,74 @@
+config {
+  type: "incremental",
+  schema: "Ranking_Performance",
+  name: "performance_extract_points_table",
+  description: "Extract de pontos ponderados por colaborador/dia. Tabela principal consumida pelo Ranking Semanal e Performance Liderança.",
+  tags: ["extract", "performance"],
+  bigquery: {
+    partitionBy: "reference_date",
+    clusterBy: ["registration_number", "fc"]
+  },
+  dependencies: [
+    "curated_recebimento",
+    "curated_reposicao",
+    "curated_reposicao_fora_processo",
+    "curated_rebipagem",
+    "curated_dark_store",
+    "curated_lote",
+    "curated_erros_gestao_estoque"
+  ]
+}
+
+pre_operations {
+  DELETE FROM ${self()} WHERE reference_date = @run_date
+}
+
+-- ⚠️ SQL do extract ainda precisa ser migrado aqui.
+-- Estrutura base de referência:
+SELECT
+  SAFE_CAST(u.registration_number AS INT64) AS registration_number,
+  u.user_name,
+  o.NOME                                    AS nome,
+  o.AREA                                    AS area,
+  o.SETOR                                   AS setor_principal,
+  o.GESTOR                                  AS gestor,
+  o.ATRIBUICAO                              AS atribuicao_principal,
+  o.TURNO                                   AS turno_principal,
+  o.CRACHA                                  AS cracha,
+  o.FOLGA_FIXA                              AS folga_fixa,
+  o.FC                                      AS fc,
+  o.DATA_ADM                                AS data_adm,
+  rm.activity_start,
+  rm.activity_end,
+  rm.source_system,
+  pm.metric_type,
+  SAFE_CAST(rm.value AS FLOAT64)            AS qty,
+  JSON_VALUE(rm.details, '$.order_code')    AS order_code,
+  SAFE_CAST(JSON_VALUE(rm.details, '$.sku_id') AS INT64) AS sku_id,
+  p.is_same_day IS TRUE                     AS is_same_day,
+  SAFE_CAST(JSON_VALUE(rm.details, '$.canal_venda') AS INT64) AS canal_venda,
+  pm.metric_description,
+  JSON_VALUE(rm.details, '$.restock_list_level')         AS restock_list_level,
+  JSON_VALUE(rm.details, '$.restock_list_type')          AS restock_list_type,
+  JSON_VALUE(rm.details, '$.receivement_category')       AS receivement_category,
+  SAFE_CAST(JSON_VALUE(rm.details, '$.is_receivement_fresh') AS BOOL) AS is_receivement_fresh,
+  JSON_VALUE(rm.details, '$.suggested_storage_receivement')  AS suggested_storage_receivement,
+  JSON_VALUE(rm.details, '$.movement_type')              AS movement_type,
+  NULL                                                   AS score_movimentacao,
+  SAFE_CAST(rm.value AS FLOAT64) * SAFE_CAST(pm.score_factor AS FLOAT64) AS points,
+  NULL                                                   AS activity_worked_hours,
+  @run_date                                              AS reference_date,
+  SAFE_CAST(JSON_VALUE(rm.details, '$.batch_id') AS STRING) AS batch_id,
+  SAFE_CAST(rm.value AS FLOAT64) * SAFE_CAST(pm.score_factor AS FLOAT64) AS pontos_ponderados,
+  ARRAY<INT64>[]                                         AS sku_ids
+
+FROM `shopper-datalakehouse-prod.performance.raw_measures_n2` AS rm
+INNER JOIN `shopper-datalakehouse-prod.performance.performance_metrics_n2` AS pm
+  ON pm.metric_code = rm.metric_code
+INNER JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
+  ON u.uuid = rm.operator_uuid
+LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.Organograma` AS o
+  ON SAFE_CAST(u.registration_number AS INT64) = SAFE_CAST(o.MATRICULA AS INT64)
+LEFT JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_n2` AS p
+  ON p.order_code = JSON_VALUE(rm.details, '$.order_code')
+WHERE DATE(rm.reported_at, 'America/Sao_Paulo') = @run_date

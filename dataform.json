@@ -1,0 +1,7 @@
+{
+  "warehouse": "bigquery",
+  "defaultSchema": "Ranking_Performance",
+  "assertionSchema": "Ranking_Performance_assertions",
+  "defaultDatabase": "shopper-performance-prod",
+  "defaultLocation": "US"
+}

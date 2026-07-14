@@ -1,0 +1,76 @@
+config {
+  type: "view",
+  schema: "Ranking_Performance",
+  name: "curated_recebimento",
+  description: "Score de recebimento por colaborador/SKU. Depende de curated_caixaria.",
+  dependencies: ["curated_caixaria"]
+}
+
+WITH BaseExtraida AS (
+  SELECT
+    SAFE_CAST(JSON_VALUE(rm.details, '$.id_receivement') AS STRING) AS id_recebimento,
+    SAFE_CAST(JSON_VALUE(rm.details, '$.batch_id')        AS STRING) AS batch_id,
+    SAFE_CAST(JSON_VALUE(rm.details, '$.sku_id')          AS INT64)  AS sku_id,
+    SAFE_CAST(u.registration_number AS INT64)                        AS cod_matricula,
+    u.user_name, rm.source_system, rm.start_timestamp, rm.end_timestamp, rm.reported_at,
+    JSON_VALUE(rm.details, '$.receivement_category')              AS categoria_recebimento,
+    JSON_VALUE(rm.details, '$.suggested_storage_receivement')     AS armazenamento_sugerido,
+    CASE WHEN JSON_VALUE(rm.details, '$.is_receivement_fresh') = 'true' THEN TRUE ELSE FALSE END AS e_fresh,
+    COALESCE(SAFE_CAST(JSON_VALUE(rm.details, '$.total_items_qty') AS FLOAT64), 0) AS qtd_pontuada
+  FROM `shopper-datalakehouse-prod.performance.raw_measures_n2` AS rm
+  INNER JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
+    ON u.uuid = rm.operator_uuid
+  WHERE rm.metric_code = 'STOCK_RECEIVEMENT'
+  QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY
+      SAFE_CAST(JSON_VALUE(rm.details, '$.id_receivement') AS STRING),
+      SAFE_CAST(JSON_VALUE(rm.details, '$.sku_id') AS INT64),
+      SAFE_CAST(JSON_VALUE(rm.details, '$.batch_id') AS STRING)
+    ORDER BY rm.end_timestamp DESC, rm.reported_at DESC
+  ) = 1
+),
+ComCaixaria AS (
+  SELECT b.*,
+    cx.caixaria AS caixaria_cadastrada,
+    CASE
+      WHEN cx_raw.vazio IS NOT NULL AND TRIM(cx_raw.vazio) != '' THEN 'FLV'
+      WHEN b.e_fresh = TRUE THEN 'FRESH'
+      ELSE 'MERCEARIA'
+    END AS categoria_produto
+  FROM BaseExtraida AS b
+  LEFT JOIN ${ref("curated_caixaria")} AS cx ON cx.sku_id = b.sku_id
+  LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.Caixaria Recebimento` AS cx_raw
+    ON CAST(b.sku_id AS STRING) = cx_raw.id_modelo
+),
+MediaPorCategoria AS (
+  SELECT categoria_produto,
+    ROUND(AVG(caixaria_cadastrada), 2) AS media_caixaria_grupo
+  FROM ComCaixaria WHERE caixaria_cadastrada > 1
+  GROUP BY categoria_produto
+),
+Calculado AS (
+  SELECT c.*, m.media_caixaria_grupo,
+    CASE
+      WHEN c.categoria_produto = 'FLV'       THEN 'CAIXARIAS FLV RECEBIDAS EM FRESH'
+      WHEN c.categoria_produto = 'FRESH'     THEN 'CAIXARIAS RECEBIDAS EM FRESH'
+      WHEN c.categoria_produto = 'MERCEARIA' THEN
+        CASE WHEN UPPER(TRIM(c.armazenamento_sugerido)) = 'PALLET'
+          THEN 'CAIXARIAS RECEBIDAS EM MERCEARIA EM PALLET'
+          ELSE 'CAIXARIAS RECEBIDAS EM MERCEARIA EM GAIOLA' END
+      ELSE 'CAIXARIAS RECEBIDAS EM MERCEARIA EM GAIOLA'
+    END AS descricao_atividade,
+    CASE
+      WHEN c.caixaria_cadastrada IS NULL OR c.caixaria_cadastrada <= 1
+        THEN COALESCE(m.media_caixaria_grupo, 1)
+      ELSE c.caixaria_cadastrada
+    END AS caixaria_final
+  FROM ComCaixaria AS c
+  LEFT JOIN MediaPorCategoria AS m ON c.categoria_produto = m.categoria_produto
+)
+SELECT
+  id_recebimento, batch_id, sku_id, cod_matricula, user_name, source_system,
+  start_timestamp, end_timestamp, categoria_recebimento, armazenamento_sugerido, e_fresh,
+  qtd_pontuada, categoria_produto, descricao_atividade, caixaria_cadastrada,
+  media_caixaria_grupo, caixaria_final,
+  LEAST(2.0, SAFE_DIVIDE(qtd_pontuada, caixaria_final)) AS score_recebimento
+FROM Calculado

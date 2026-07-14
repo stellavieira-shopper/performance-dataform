@@ -1,0 +1,54 @@
+config {
+  type: "view",
+  schema: "Ranking_Performance",
+  name: "curated_lote",
+  description: "Score de mapeamento de lote por colaborador. Depende de curated_lote_media e curated_caixaria.",
+  dependencies: ["curated_lote_media", "curated_caixaria"]
+}
+
+WITH BaseCalculo AS (
+  SELECT
+    m.movement_id, m.movement_type, m.location_id, m.due_date,
+    m.balance, m.volume, m.market_order_id, m.measure_unit_type_id,
+    m.justification, m.item_qty AS value, m.sku_id, m.batch_id,
+    CAST(m.movement_at AS STRING) AS end_timestamp,
+    T2.media_movimentada_sem_outliers,
+    cx.caixaria,
+    SAFE_CAST(u.registration_number AS INT64) AS cod_matricula,
+    u.user_name,
+    CASE
+      WHEN loc.is_gondola = 1 AND loc.is_fresh = 1 THEN 'MAPEAMENTO DE LOTE REPOSIÇÃO FRESH'
+      WHEN loc.is_gondola = 1 AND loc.is_fresh = 0 THEN 'MAPEAMENTO DE LOTE REPOSIÇÃO MERCEARIA'
+      WHEN loc.is_gondola = 0 AND loc.is_fresh = 1 THEN 'MAPEAMENTO DE LOTE RECEBIMENTO FRESH'
+      ELSE                                               'MAPEAMENTO DE LOTE RECEBIMENTO MERCEARIA'
+    END AS descricao_atividade
+  FROM `shopper-datalakehouse-prod.inventory.wss_movimentacoes_n2` AS m
+  LEFT JOIN `shopper-datalakehouse-prod.fulfillment_centers.wss_localizacoes_n2` AS loc
+    ON m.location_id = loc.location_id
+  LEFT JOIN ${ref("curated_lote_media")} AS T2 ON m.sku_id = T2.id_modelo
+  LEFT JOIN ${ref("curated_caixaria")} AS cx    ON m.sku_id = cx.sku_id
+  LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
+    ON u.user_id = SAFE_CAST(m.created_by AS INT64)
+  WHERE m.justification LIKE '%Entrada para abastecimento (movimentação)%'
+     OR m.justification LIKE '%Entrada por abastecimento (movimentação de coleta)%'
+)
+SELECT
+  T_Score.* EXCEPT (media_movimentada_sem_outliers, fator_caixaria, caixaria),
+  T_Score.caixaria,
+  COALESCE(T_Score.media_movimentada_sem_outliers, 1) AS media_para_calculo,
+  T_Score.fator_caixaria,
+  CASE
+    WHEN T_Score.value = 0 THEN 0.0
+    ELSE LEAST(2.0,
+      SAFE_DIVIDE(T_Score.value, COALESCE(T_Score.media_movimentada_sem_outliers, 1))
+      * T_Score.fator_caixaria)
+  END AS score_movimentacao
+FROM (
+  SELECT *,
+    CASE
+      WHEN caixaria IS NULL THEN 1.0
+      WHEN value = caixaria THEN 1.5
+      ELSE GREATEST(1.0, 1.5 - (0.5 * SAFE_DIVIDE(ABS(value - caixaria), caixaria)))
+    END AS fator_caixaria
+  FROM BaseCalculo
+) AS T_Score

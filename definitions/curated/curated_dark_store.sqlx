@@ -1,0 +1,47 @@
+config {
+  type: "view",
+  schema: "Ranking_Performance",
+  name: "curated_dark_store",
+  description: "Picking de pedidos de lojinha (dark store) por colaborador. Pedidos com código terminando em N."
+}
+
+WITH Esteira_Picking AS (
+  SELECT
+    kdabra_order_id,
+    MIN(started_stage_at)  AS inicio_picking,
+    ANY_VALUE(executed_by) AS executed_by,
+    ANY_VALUE(shift_date)  AS shift_date
+  FROM `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_esteira_n2`
+  WHERE conveyor_stage_id = 21
+  GROUP BY kdabra_order_id
+),
+Esteira_Packing AS (
+  SELECT kdabra_order_id, MAX(end_stage_at) AS fim_picking
+  FROM `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_esteira_n2`
+  WHERE conveyor_stage_id = 29
+  GROUP BY kdabra_order_id
+)
+SELECT
+  SAFE_CAST(u.registration_number AS INT64) AS cod_matricula,
+  u.user_name,
+  p.order_code                              AS cod_pedido,
+  p.fulfillment_center_id,
+  CAST(e21.shift_date AS DATE)              AS reference_date,
+  e21.inicio_picking                        AS activity_start,
+  e29.fim_picking                           AS activity_end,
+  SUM(COALESCE(itens.item_picked_qty, 0))   AS qty,
+  'ITENS PICKADOS EM DARK'                  AS metric_description,
+  'PROMOTORA'                               AS metric_type,
+  520.0                                     AS score_factor
+FROM Esteira_Picking AS e21
+INNER JOIN Esteira_Packing AS e29 ON e21.kdabra_order_id = e29.kdabra_order_id
+LEFT JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_n2` AS p
+  ON e21.kdabra_order_id = p.kdabra_order_id
+LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
+  ON CAST(e21.executed_by AS INT64) = u.user_id
+LEFT JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_itens_pedidos_n2` AS itens
+  ON itens.kdabra_order_id = e21.kdabra_order_id
+  AND COALESCE(itens.is_replacement, 0) = 0
+WHERE p.order_code LIKE '%N'
+  AND p.fulfillment_center_id NOT IN (1, 2, 3, 7)
+GROUP BY 1, 2, 3, 4, 5, 6, 7
