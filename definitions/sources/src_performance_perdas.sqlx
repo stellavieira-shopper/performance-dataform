@@ -1,0 +1,27 @@
+config {
+  type: "table",
+  schema: "Ranking_Performance",
+  name: "src_performance_perdas",
+  description: "Perdas consolidadas por colaborador. External table do Google Sheets.",
+  bigquery: {
+    externalDataConfiguration: {
+      sourceFormat: "GOOGLE_SHEETS",
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1P5oy3W7N3AANFfoP6AoZKzcBE7_lvpfexlUC1ZSke-c/edit?gid=1208367035#gid=1208367035"],
+      googleSheetsOptions: { range: "CONSOLIDADO PERDAS GERAL!A02:I", skipLeadingRows: 0 },
+      ignoreUnknownValues: true,
+      schema: { fields: [
+        { name: "Matricula",           type: "INT64" },
+        { name: "Nome",                type: "STRING" },
+        { name: "Cracha",              type: "STRING" },
+        { name: "FC",                  type: "STRING" },
+        { name: "Data",                type: "DATE" },
+        { name: "Data_Hora",           type: "STRING" },
+        { name: "Metric_Type",         type: "STRING" },
+        { name: "Descricao_Atividade", type: "STRING" },
+        { name: "Value",               type: "NUMERIC" }
+      ]}
+    }
+  }
+}
+
+SELECT * FROM ${self()}

@@ -21,7 +21,8 @@ config {
     "src_organograma",
     "src_pesos_turno",
     "src_pre_expedicao",
-    "src_dados_inventario"
+    "src_dados_inventario",
+    "src_performance_perdas"
   ]
 }
 
@@ -257,7 +258,7 @@ perdas AS (
     CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64),
     CAST(ABS(SAFE_CAST(pr.Value AS FLOAT64)) AS FLOAT64)*1.0,
     CAST(NULL AS FLOAT64), CAST(pr.Data AS DATE), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.Performance Perdas` AS pr
+  FROM ${ref("src_performance_perdas")} AS pr
   LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
     ON u.registration_number = SAFE_CAST(pr.Matricula AS INT64)
   WHERE pr.Matricula IS NOT NULL AND pr.Data IS NOT NULL
