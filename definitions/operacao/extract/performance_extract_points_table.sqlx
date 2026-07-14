@@ -31,7 +31,7 @@
 
 pre_operations {
   DELETE FROM ${self()}
-  WHERE reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 6 MONTH)
+  WHERE reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 15 DAY)
 }
 
 WITH base AS (
@@ -102,7 +102,7 @@ WITH base AS (
       SAFE_CAST(rm.start_timestamp AS TIMESTAMP),
       SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S', rm.start_timestamp),
       SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z', REGEXP_REPLACE(rm.start_timestamp, r' \([^)]*\)$', ''))
-    ) >= TIMESTAMP(DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 6 MONTH), 'America/Sao_Paulo')
+    ) >= TIMESTAMP(DATE_TRUNC(DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 1 MONTH), MONTH), 'America/Sao_Paulo')
 ),
 
 base2 AS (
@@ -504,5 +504,5 @@ FROM eventos_unificados AS eu
 INNER JOIN organograma_cache AS org ON CAST(eu.registration_number AS STRING) = org.matricula
 LEFT JOIN pesos_turno_cache AS pt
   ON UPPER(TRIM(CASE WHEN eu.source_system='DARK_STORE' THEN 'ITENS PICKADOS EM FRESH' ELSE eu.metric_description END)) = pt.metric_key
-WHERE eu.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 6 MONTH)
+WHERE eu.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 15 DAY)
 
