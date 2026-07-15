@@ -1,6 +1,3 @@
--- Tabela estática — importar dados do projeto origem:
--- INSERT INTO `shopper-performance-prod.darkstore.raw_sku_classificacao`
--- SELECT * FROM `shopper-datalakehouse-qa.performance_darkstore.raw_sku_classificacao`
 CREATE TABLE IF NOT EXISTS `shopper-performance-prod.darkstore.raw_sku_classificacao`
 (
   id_modelo       INT64,
@@ -9,3 +6,6 @@ CREATE TABLE IF NOT EXISTS `shopper-performance-prod.darkstore.raw_sku_classific
   categoria_raw   STRING,
   tipo_sku        STRING
 );
+
+INSERT INTO `shopper-performance-prod.darkstore.raw_sku_classificacao`
+SELECT * FROM `shopper-datalakehouse-qa.performance_darkstore.raw_sku_classificacao`;
