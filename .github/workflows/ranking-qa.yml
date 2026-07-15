@@ -2,7 +2,7 @@ name: Ranking QA — Pipeline Semanal
 
 on:
   schedule:
-    - cron: '0 19 * * 5'  # sexta 16h BRT (UTC-3)
+    - cron: '0 20 * * 5'  # sexta 17h BRT (UTC-3)
 
   workflow_dispatch:
     inputs:
