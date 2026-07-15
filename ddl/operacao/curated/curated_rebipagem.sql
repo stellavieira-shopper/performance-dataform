@@ -1,0 +1,47 @@
+CREATE OR REPLACE VIEW `shopper-performance-prod.operacao.curated_rebipagem`
+OPTIONS (description = 'Promotora de Rebipagem Hospital: pontos para o operador que realizou a re-bipagem do pedido.')
+AS
+WITH HospitalBase AS (
+  SELECT hr.id_rebipagem, hr.cod_pedido, hr.Op_rebipagem,
+    SAFE_CAST(hr.cod_matricula AS INT64) AS cod_matricula, hr.Criado_em, hr.Fiscal
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.Hospital Rebipagem` AS hr
+  WHERE hr.cod_pedido IS NOT NULL AND hr.Op_rebipagem IS NOT NULL
+),
+RawPedidos AS (
+  SELECT
+    JSON_VALUE(rm.details,'$.order_code') AS order_code,
+    rm.metric_code, rm.source_system, SAFE_CAST(rm.value AS FLOAT64) AS qty_raw,
+    COALESCE(SAFE_CAST(rm.start_timestamp AS TIMESTAMP),
+      SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',rm.start_timestamp),
+      SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(rm.start_timestamp,r' \([^)]*\)$',''))) AS start_ts,
+    COALESCE(SAFE_CAST(rm.end_timestamp AS TIMESTAMP),
+      SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',rm.end_timestamp),
+      SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(rm.end_timestamp,r' \([^)]*\)$',''))) AS end_ts
+  FROM `shopper-datalakehouse-prod.performance.raw_measures_n2` AS rm
+  WHERE rm.metric_code IN ('FRESH_PICKING','GROCERY_CHECK')
+    AND JSON_VALUE(rm.details,'$.order_code') IS NOT NULL
+),
+Joined AS (
+  SELECT h.id_rebipagem, h.cod_pedido, h.Op_rebipagem, h.cod_matricula, h.Criado_em, h.Fiscal,
+    r.metric_code, r.source_system, r.qty_raw,
+    DATETIME(r.start_ts,'America/Sao_Paulo') AS activity_start,
+    DATETIME(r.end_ts,'America/Sao_Paulo')   AS activity_end,
+    TIMESTAMP_DIFF(r.end_ts,r.start_ts,SECOND)/3600.0 AS activity_worked_hours,
+    DATE(CASE WHEN EXTRACT(HOUR FROM DATETIME(r.start_ts,'America/Sao_Paulo'))>=22
+                THEN DATETIME_ADD(DATETIME(r.start_ts,'America/Sao_Paulo'),INTERVAL 1 DAY)
+              WHEN EXTRACT(HOUR FROM DATETIME(r.start_ts,'America/Sao_Paulo'))<6
+                THEN DATETIME_SUB(DATETIME(r.start_ts,'America/Sao_Paulo'),INTERVAL 1 DAY)
+              ELSE DATETIME(r.start_ts,'America/Sao_Paulo') END) AS reference_date,
+    pm.metric_type, SAFE_CAST(pm.score_factor AS FLOAT64) AS score_factor
+  FROM HospitalBase AS h
+  INNER JOIN RawPedidos AS r ON r.order_code=h.cod_pedido
+  LEFT JOIN `shopper-datalakehouse-qa.performance.performance_metrics_n2` AS pm ON pm.metric_code=r.metric_code
+  WHERE r.start_ts IS NOT NULL AND r.end_ts IS NOT NULL
+)
+SELECT j.cod_matricula AS registration_number, j.Op_rebipagem AS user_name,
+  j.activity_start, j.activity_end, j.source_system, j.metric_type,
+  j.qty_raw AS qty, j.cod_pedido AS order_code, j.metric_code,
+  'REBIPAGEM HOSPITAL' AS metric_description,
+  j.qty_raw*j.score_factor AS points,
+  j.activity_worked_hours, j.reference_date, j.id_rebipagem, j.Fiscal, j.Criado_em
+FROM Joined AS j;

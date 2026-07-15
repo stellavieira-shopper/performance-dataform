@@ -1,0 +1,284 @@
+DELETE FROM `shopper-datalakehouse-qa.Ranking_Performance.performance_extract_points_table`
+WHERE reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 8 DAY);
+
+INSERT INTO `shopper-datalakehouse-qa.Ranking_Performance.performance_extract_points_table`
+
+WITH base AS (
+  SELECT
+    GENERATE_UUID() AS row_id,
+    u.registration_number,
+    u.user_name,
+    COALESCE(
+      SAFE_CAST(rm.start_timestamp AS TIMESTAMP),
+      SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S', rm.start_timestamp),
+      SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z', REGEXP_REPLACE(rm.start_timestamp, r' \([^)]*\)$', ''))
+    ) AS start_ts,
+    COALESCE(
+      SAFE_CAST(rm.end_timestamp AS TIMESTAMP),
+      SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S', rm.end_timestamp),
+      SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z', REGEXP_REPLACE(rm.end_timestamp, r' \([^)]*\)$', ''))
+    ) AS end_ts,
+    rm.source_system, pm.metric_type, rm.metric_code,
+    CASE WHEN rm.metric_code = 'STOCK_RECEIVEMENT'
+      THEN SAFE_CAST(JSON_VALUE(rm.details, '$.total_items_qty') AS FLOAT64)
+      ELSE CAST(rm.value AS FLOAT64) END AS qty_raw,
+    JSON_VALUE(rm.details, '$.order_code') AS order_code,
+    SAFE_CAST(JSON_VALUE(rm.details, '$.sku_id') AS INT64) AS sku_id,
+    JSON_VALUE(rm.details, '$.restock_list_level') AS restock_list_level,
+    JSON_VALUE(rm.details, '$.restock_list_type') AS restock_list_type,
+    JSON_VALUE(rm.details, '$.receivement_category') AS receivement_category,
+    SAFE_CAST(JSON_VALUE(rm.details, '$.is_receivement_fresh') AS BOOL) AS is_receivement_fresh,
+    JSON_VALUE(rm.details, '$.suggested_storage_receivement') AS suggested_storage_receivement,
+    JSON_VALUE(rm.details, '$.movement_type') AS movement_type,
+    CASE WHEN rm.metric_code = 'STOCK_RECEIVEMENT' THEN JSON_VALUE(rm.details, '$.batch_id') ELSE NULL END AS batch_id_raw,
+    prod.sku_code AS product_code,
+    p.is_same_day, p.sales_channel_id AS canal_venda, p.pack_mode,
+    CASE
+      WHEN rm.metric_code IN ('MOVEMENT_PICKUP', 'MOVEMENT_RESTOCK') THEN
+        CASE
+          WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'Reposição - Mercearia'
+            THEN CONCAT('REPOSIÇÃO MERCEARIA: ', UPPER(JSON_VALUE(rm.details, '$.restock_list_level')))
+          WHEN JSON_VALUE(rm.details, '$.restock_list_type') IN ('Retorno Picking Secos', 'Picking Secos') THEN 'REPOSIÇÃO PICKING SECOS'
+          WHEN JSON_VALUE(rm.details, '$.restock_list_type') IN ('Check-in - Mercearia', 'Check-in - Fresh') THEN 'REPOSIÇÃO CHECKIN'
+          WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'Transferência' THEN 'REPOSIÇÃO TRANSFERÊNCIA'
+          WHEN JSON_VALUE(rm.details, '$.restock_list_type') = 'Reposição - Fresh' THEN 'REPOSIÇÃO FRESH'
+          ELSE 'REPOSIÇÃO'
+        END
+      WHEN rm.metric_code IN ('MOVEMENT_PK', 'MOVEMENT_TRANSFER') THEN
+        CASE WHEN JSON_VALUE(rm.details, '$.movement_type') IS NULL THEN 'REPOSIÇÃO TRANSFERÊNCIA RECEBIDA' ELSE 'REPOSIÇÃO PK' END
+      WHEN pm.metric_description = 'SEGUNDA CONFERENCIA FRESCOS'   THEN 'REBIPAGEM FRESH'
+      WHEN pm.metric_description = 'SEGUNDA CONFERENCIA MERCEARIA' THEN 'REBIPAGEM MERCEARIA'
+      ELSE pm.metric_description
+    END AS metric_description,
+    SAFE_CAST(pm.score_factor AS FLOAT64) AS score_factor,
+    CASE
+      WHEN rm.metric_code LIKE '%PICKING%' THEN
+        ARRAY(SELECT SAFE_CAST(JSON_VALUE(item, '$.sku_id') AS INT64) FROM UNNEST(JSON_QUERY_ARRAY(rm.details, '$.order_items')) AS item WHERE JSON_VALUE(item, '$.sku_id') IS NOT NULL)
+      WHEN rm.metric_code LIKE '%CHECK%' THEN
+        ARRAY(SELECT SAFE_CAST(JSON_VALUE(item, '$.model_id') AS INT64) FROM UNNEST(JSON_QUERY_ARRAY(rm.details, '$.order_items')) AS item WHERE JSON_VALUE(item, '$.model_id') IS NOT NULL)
+      WHEN rm.metric_code = 'STOCK_FRACTION' THEN
+        IF(JSON_VALUE(rm.details, '$.sku_id') IS NOT NULL, [SAFE_CAST(JSON_VALUE(rm.details, '$.sku_id') AS INT64)], CAST([] AS ARRAY<INT64>))
+      WHEN rm.metric_code = 'INCLUDED_ITEMS' THEN
+        ARRAY(SELECT SAFE_CAST(JSON_VALUE(item, '$.sku_id') AS INT64) FROM UNNEST(JSON_QUERY_ARRAY(rm.details, '$.order_items')) AS item WHERE JSON_VALUE(item, '$.sku_id') IS NOT NULL)
+      ELSE CAST([] AS ARRAY<INT64>)
+    END AS sku_ids
+  FROM `shopper-datalakehouse-prod.performance.raw_measures_n2` AS rm
+  INNER JOIN `shopper-datalakehouse-prod.performance.performance_metrics_n2` AS pm ON pm.metric_code = rm.metric_code
+  INNER JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u ON u.uuid = rm.operator_uuid
+  LEFT JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_n2` AS p ON p.order_code = JSON_VALUE(rm.details, '$.order_code')
+  LEFT JOIN `shopper-datalakehouse-prod.shared.purchase_automation_produtos_n3` AS prod ON prod.sku_id = SAFE_CAST(JSON_VALUE(rm.details, '$.sku_id') AS INT64)
+  WHERE COALESCE(
+      SAFE_CAST(rm.start_timestamp AS TIMESTAMP),
+      SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S', rm.start_timestamp),
+      SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z', REGEXP_REPLACE(rm.start_timestamp, r' \([^)]*\)$', ''))
+    ) >= TIMESTAMP(DATE_TRUNC(DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 1 MONTH), MONTH), 'America/Sao_Paulo')
+),
+
+base2 AS (
+  SELECT b.*,
+    DATETIME(b.start_ts) AS activity_start,
+    DATETIME(b.end_ts)   AS activity_end,
+    TIMESTAMP_DIFF(b.end_ts, b.start_ts, SECOND) / 3600.0 AS activity_worked_hours,
+    DATE(CASE
+      WHEN EXTRACT(HOUR FROM DATETIME(b.start_ts)) >= 22 THEN DATETIME_ADD(DATETIME(b.start_ts), INTERVAL 1 DAY)
+      WHEN EXTRACT(HOUR FROM DATETIME(b.start_ts)) <  6  THEN DATETIME_SUB(DATETIME(b.start_ts), INTERVAL 1 DAY)
+      ELSE DATETIME(b.start_ts)
+    END) AS reference_date
+  FROM base b WHERE b.start_ts IS NOT NULL AND b.end_ts IS NOT NULL
+),
+
+calc_score AS (
+  SELECT b.*, m.factor AS modifier_factor, cwf.score_factor AS cwf_score_factor,
+    CASE
+      WHEN b.metric_code IN ('MOVEMENT_PICKUP','MOVEMENT_RESTOCK') THEN
+        LEAST(2.0, SAFE_DIVIDE(b.qty_raw, COALESCE(med_repos.media_sem_outliers,1.0))
+          * CASE WHEN cx.caixaria IS NULL THEN 1.0 WHEN b.qty_raw=cx.caixaria THEN 1.5
+              ELSE GREATEST(1.0,1.5-(0.5*SAFE_DIVIDE(ABS(b.qty_raw-cx.caixaria),cx.caixaria))) END)
+      WHEN b.metric_code = 'STOCK_RECEIVEMENT' THEN
+        LEAST(2.0, SAFE_DIVIDE(b.qty_raw, COALESCE(med_receb.media_sem_outliers,1.0))
+          * CASE WHEN cx.caixaria IS NULL THEN 1.0 WHEN b.qty_raw=cx.caixaria THEN 1.5
+              ELSE GREATEST(1.0,1.5-(0.5*SAFE_DIVIDE(ABS(b.qty_raw-cx.caixaria),cx.caixaria))) END)
+      WHEN b.metric_code IN ('MOVEMENT_PK','MOVEMENT_TRANSFER') THEN
+        LEAST(2.0, SAFE_DIVIDE(b.qty_raw, COALESCE(med_pk.media_sem_outliers,1.0))
+          * CASE WHEN cx.caixaria IS NULL THEN 1.0 WHEN b.qty_raw=cx.caixaria THEN 1.5
+              ELSE GREATEST(1.0,1.5-(0.5*SAFE_DIVIDE(ABS(b.qty_raw-cx.caixaria),cx.caixaria))) END)
+      ELSE NULL
+    END AS score_movimentacao
+  FROM base2 AS b
+  LEFT JOIN `shopper-datalakehouse-prod.performance.modifiers_picking_pack` AS m ON m.metric_code=b.metric_code AND b.qty_raw BETWEEN m.start_range_qty AND m.end_range_qty
+  LEFT JOIN `shopper-datalakehouse-prod.performance.curated_weight_fractionation` AS cwf ON cwf.product_code=b.product_code
+  LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.curated_movement_media` AS med_repos ON med_repos.sku_id=b.sku_id AND med_repos.movement_group='REPOSICAO' AND med_repos.restock_list_level=b.restock_list_level AND med_repos.restock_list_type=b.restock_list_type AND b.metric_code IN ('MOVEMENT_PICKUP','MOVEMENT_RESTOCK')
+  LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.curated_movement_media` AS med_receb ON med_receb.sku_id=b.sku_id AND med_receb.movement_group='RECEBIMENTO' AND med_receb.receivement_category=b.receivement_category AND med_receb.is_receivement_fresh=b.is_receivement_fresh AND med_receb.suggested_storage_receivement=b.suggested_storage_receivement AND b.metric_code='STOCK_RECEIVEMENT'
+  LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.curated_movement_media` AS med_pk ON med_pk.sku_id=b.sku_id AND med_pk.movement_group='PK' AND med_pk.movement_type IS NOT DISTINCT FROM b.movement_type AND b.metric_code IN ('MOVEMENT_PK','MOVEMENT_TRANSFER')
+  LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.curated_caixaria` AS cx ON cx.sku_id=b.sku_id AND b.metric_code IN ('MOVEMENT_PICKUP','MOVEMENT_RESTOCK','STOCK_RECEIVEMENT','MOVEMENT_PK','MOVEMENT_TRANSFER')
+  WHERE b.metric_code NOT IN ('MOVEMENT_PICKUP','MOVEMENT_RESTOCK','STOCK_RECEIVEMENT')
+    AND b.metric_description NOT IN ('VOLUMES EXPEDIDOS','ITENS NÃO PICKADOS EM FRESH MAS COM ESTOQUE POSITIVO')
+    AND NOT (CAST(b.is_same_day AS BOOL) IS TRUE AND b.metric_description IN ('ITENS NÃO PICKADOS EM MERCEARIA','ITENS NÃO PICKADOS EM FRESH','ITENS NÃO PICKADOS EM MERCEARIA MAS COM ESTOQUE POSITIVO'))
+    AND NOT (LOWER(TRIM(b.pack_mode)) = 'express' AND b.metric_description LIKE '%NÃO CONFERIDOS%')
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY b.row_id ORDER BY (m.end_range_qty-m.start_range_qty) ASC, m.start_range_qty ASC) = 1
+),
+
+calc AS (
+  SELECT s.registration_number, s.user_name, s.activity_start, s.activity_end, s.source_system, s.metric_type,
+    CASE WHEN UPPER(TRIM(s.metric_description)) LIKE '%AUDITORIA%' THEN 1.0 WHEN s.metric_code IN ('MOVEMENT_PICKUP','MOVEMENT_RESTOCK','STOCK_RECEIVEMENT','MOVEMENT_PK','MOVEMENT_TRANSFER') THEN s.score_movimentacao ELSE s.qty_raw END AS qty,
+    s.order_code, s.sku_id, CAST(s.is_same_day AS BOOL) AS is_same_day, s.canal_venda, s.metric_description,
+    s.restock_list_level, s.restock_list_type, s.receivement_category, s.is_receivement_fresh, s.suggested_storage_receivement, s.movement_type, s.score_movimentacao,
+    CASE WHEN UPPER(TRIM(s.metric_description)) LIKE '%AUDITORIA%' THEN 1.0 WHEN s.metric_code='STOCK_FRACTION' THEN s.qty_raw*COALESCE(s.cwf_score_factor,1.0)*s.score_factor WHEN s.metric_code IN ('MOVEMENT_PICKUP','MOVEMENT_RESTOCK','STOCK_RECEIVEMENT','MOVEMENT_PK','MOVEMENT_TRANSFER') THEN s.score_movimentacao*s.score_factor ELSE COALESCE(s.modifier_factor,1)*s.qty_raw*s.score_factor END AS points,
+    s.activity_worked_hours, s.reference_date, COALESCE(s.batch_id_raw, CAST(NULL AS STRING)) AS batch_id,
+    s.pack_mode, s.sku_ids
+  FROM calc_score AS s
+),
+
+espelho AS (
+  SELECT
+    CAST(pv.registration_number   AS INT64)    AS registration_number,
+    CAST(u.user_name              AS STRING)   AS user_name,
+    CAST(pv.activity_start        AS DATETIME) AS activity_start,
+    CAST(pv.activity_end          AS DATETIME) AS activity_end,
+    CAST(pv.source_system         AS STRING)   AS source_system,
+    CAST(pv.metric_type           AS STRING)   AS metric_type,
+    CAST(pv.qty                   AS FLOAT64)  AS qty,
+    CAST(NULL AS STRING)                       AS order_code,
+    CAST(NULL AS INT64)                        AS sku_id,
+    CAST(NULL AS BOOL)                         AS is_same_day,
+    CAST(NULL AS INT64)                        AS canal_venda,
+    CAST(pv.metric_description    AS STRING)   AS metric_description,
+    CAST(NULL AS STRING)                       AS restock_list_level,
+    CAST(NULL AS STRING)                       AS restock_list_type,
+    CAST(NULL AS STRING)                       AS receivement_category,
+    CAST(NULL AS BOOL)                         AS is_receivement_fresh,
+    CAST(NULL AS STRING)                       AS suggested_storage_receivement,
+    CAST(NULL AS STRING)                       AS movement_type,
+    CAST(NULL AS FLOAT64)                      AS score_movimentacao,
+    CAST(pv.points                AS FLOAT64)  AS points,
+    CAST(pv.activity_worked_hours AS FLOAT64)  AS activity_worked_hours,
+    CAST(pv.reference_date        AS DATE)     AS reference_date,
+    CAST(NULL AS STRING)                       AS batch_id,
+    CAST([] AS ARRAY<INT64>)                   AS sku_ids
+  FROM `shopper-datalakehouse-prod.performance.performance_extract_points_n2` pv
+  LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` u ON u.uuid = pv.employee_uuid
+  WHERE pv.metric_description IN ('INICIO DO EXPEDIENTE','ENTRADA PARA INTERVALO','VOLTA DO INTERVALO','FIM DO EXPEDIENTE')
+),
+
+expedicao AS (
+  SELECT SAFE_CAST(exp.MATRICULA AS INT64), CAST(u.user_name AS STRING), CAST(NULL AS DATETIME), CAST(NULL AS DATETIME), 'EXPEDICAO_TRATADA', 'PROMOTORA', SUM(SAFE_CAST(exp.VOLUMES AS FLOAT64)), CAST(NULL AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), IF(exp.E_SMD,'VOLUMES SMD EXPEDIDOS','VOLUMES EXPEDIDOS'), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64), SUM(SAFE_CAST(exp.VOLUMES AS FLOAT64))*1.0, CAST(NULL AS FLOAT64), CAST(exp.DATA AS DATE), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.EXPEDIÇÃO TRATADA` AS exp
+  LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u ON u.registration_number=SAFE_CAST(exp.MATRICULA AS INT64)
+  WHERE exp.MATRICULA IS NOT NULL AND exp.DATA IS NOT NULL
+  GROUP BY exp.MATRICULA, u.user_name, exp.DATA, exp.E_SMD
+),
+
+pre_expedicao AS (
+  SELECT SAFE_CAST(pe.Matricula AS INT64), CAST(pe.NOME AS STRING), CAST(NULL AS DATETIME), CAST(NULL AS DATETIME), 'PRE_EXPEDICAO_TABLE', UPPER(TRIM(pe.metric_type)), SAFE_CAST(pe.Qtd_pedidos_mapeados AS FLOAT64), CAST(NULL AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), 'PEDIDOS MAPEADOS', CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64), SAFE_CAST(pe.Qtd_pedidos_mapeados AS FLOAT64)*1.0, CAST(NULL AS FLOAT64), CAST(pe.Data AS DATE), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.Pré-Expedição` AS pe
+  WHERE pe.Matricula IS NOT NULL AND pe.Data IS NOT NULL
+),
+
+perdas AS (
+  SELECT SAFE_CAST(pr.Matricula AS INT64), CAST(u.user_name AS STRING), CAST(NULL AS DATETIME), CAST(NULL AS DATETIME), 'PERFORMANCE_PERDAS_TABLE', UPPER(TRIM(pr.Metric_Type)), CAST(ABS(SAFE_CAST(pr.Value AS FLOAT64)) AS FLOAT64), CAST(NULL AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), TRIM(pr.Descricao_Atividade), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64), CAST(ABS(SAFE_CAST(pr.Value AS FLOAT64)) AS FLOAT64)*1.0, CAST(NULL AS FLOAT64), CAST(pr.Data AS DATE), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.Performance Perdas` AS pr
+  LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u ON u.registration_number=SAFE_CAST(pr.Matricula AS INT64)
+  WHERE pr.Matricula IS NOT NULL AND pr.Data IS NOT NULL
+),
+
+inventario AS (
+  SELECT
+    SAFE_CAST(inv.cod_matricula AS INT64), CAST(u.user_name AS STRING),
+    CAST(NULL AS DATETIME), CAST(NULL AS DATETIME),
+    'DADOS_INVENTARIO_TABLE', UPPER(TRIM(inv.metric_type)),
+    CAST(ABS(SAFE_CAST(inv.qtd_inventario AS FLOAT64)) AS FLOAT64),
+    CAST(NULL AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64),
+    TRIM(inv.metric_description),
+    CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL),
+    CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64),
+    CAST(ABS(SAFE_CAST(inv.qtd_inventario AS FLOAT64)) AS FLOAT64)*1.0,
+    CAST(NULL AS FLOAT64), CAST(inv.Data AS DATE), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.Dados_Inventario` AS inv
+  LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u ON u.registration_number=SAFE_CAST(inv.cod_matricula AS INT64)
+  WHERE inv.cod_matricula IS NOT NULL AND inv.Data IS NOT NULL
+),
+
+c_reposicao AS (
+  SELECT SAFE_CAST(r.cod_matricula AS INT64), CAST(r.user_name AS STRING), DATETIME(r.start_ts,'America/Sao_Paulo'), DATETIME(r.end_ts,'America/Sao_Paulo'), CAST(r.source_system AS STRING), 'PROMOTORA', CAST(r.score_movimentacao AS FLOAT64), CAST(NULL AS STRING), CAST(r.sku_id AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), CAST(r.descricao_atividade AS STRING), CAST(r.restock_list_level AS STRING), CAST(r.restock_list_type AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(r.score_movimentacao AS FLOAT64), CAST(r.score_movimentacao AS FLOAT64)*SAFE_CAST(pm.score_factor AS FLOAT64), TIMESTAMP_DIFF(r.end_ts,r.start_ts,SECOND)/3600.0,
+    DATE(CASE WHEN EXTRACT(HOUR FROM DATETIME(r.start_ts,'America/Sao_Paulo'))>=22 THEN DATETIME_ADD(DATETIME(r.start_ts,'America/Sao_Paulo'),INTERVAL 1 DAY) WHEN EXTRACT(HOUR FROM DATETIME(r.start_ts,'America/Sao_Paulo'))<6 THEN DATETIME_SUB(DATETIME(r.start_ts,'America/Sao_Paulo'),INTERVAL 1 DAY) ELSE DATETIME(r.start_ts,'America/Sao_Paulo') END), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
+  FROM (SELECT *, COALESCE(SAFE_CAST(start_timestamp AS TIMESTAMP),SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',start_timestamp),SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(start_timestamp,r' \([^)]*\)$',''))) AS start_ts, COALESCE(SAFE_CAST(end_timestamp AS TIMESTAMP),SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',end_timestamp),SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(end_timestamp,r' \([^)]*\)$',''))) AS end_ts FROM `shopper-datalakehouse-qa.Ranking_Performance.curated_reposicao` WHERE start_timestamp IS NOT NULL AND end_timestamp IS NOT NULL) AS r
+  INNER JOIN `shopper-datalakehouse-prod.performance.performance_metrics_n2` AS pm ON pm.metric_code=r.metric_code
+),
+
+c_recebimento AS (
+  SELECT SAFE_CAST(r.cod_matricula AS INT64), CAST(r.user_name AS STRING), DATETIME(r.start_ts,'America/Sao_Paulo'), DATETIME(r.end_ts,'America/Sao_Paulo'), CAST(r.source_system AS STRING), 'PROMOTORA', CAST(r.score_recebimento AS FLOAT64), CAST(NULL AS STRING), CAST(r.sku_id AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), CAST(r.descricao_atividade AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(r.categoria_recebimento AS STRING), CAST(r.e_fresh AS BOOL), CAST(r.armazenamento_sugerido AS STRING), CAST(NULL AS STRING), CAST(r.score_recebimento AS FLOAT64), CAST(r.score_recebimento AS FLOAT64)*SAFE_CAST(pm.score_factor AS FLOAT64), TIMESTAMP_DIFF(r.end_ts,r.start_ts,SECOND)/3600.0,
+    DATE(CASE WHEN EXTRACT(HOUR FROM DATETIME(r.start_ts,'America/Sao_Paulo'))>=22 THEN DATETIME_ADD(DATETIME(r.start_ts,'America/Sao_Paulo'),INTERVAL 1 DAY) WHEN EXTRACT(HOUR FROM DATETIME(r.start_ts,'America/Sao_Paulo'))<6 THEN DATETIME_SUB(DATETIME(r.start_ts,'America/Sao_Paulo'),INTERVAL 1 DAY) ELSE DATETIME(r.start_ts,'America/Sao_Paulo') END), CAST(r.batch_id AS STRING), CAST([] AS ARRAY<INT64>)
+  FROM (SELECT *, COALESCE(SAFE_CAST(start_timestamp AS TIMESTAMP),SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',start_timestamp),SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(start_timestamp,r' \([^)]*\)$',''))) AS start_ts, COALESCE(SAFE_CAST(end_timestamp AS TIMESTAMP),SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',end_timestamp),SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(end_timestamp,r' \([^)]*\)$',''))) AS end_ts FROM `shopper-datalakehouse-qa.Ranking_Performance.curated_recebimento` WHERE start_timestamp IS NOT NULL AND end_timestamp IS NOT NULL) AS r
+  INNER JOIN `shopper-datalakehouse-prod.performance.performance_metrics_n2` AS pm ON pm.metric_code='STOCK_RECEIVEMENT'
+),
+
+c_lote AS (
+  SELECT SAFE_CAST(l.cod_matricula AS INT64), CAST(l.user_name AS STRING), DATETIME(l.end_ts,'America/Sao_Paulo'), DATETIME(l.end_ts,'America/Sao_Paulo'), 'MOVIMENTACAO_LOTE', 'PROMOTORA', CAST(l.score_movimentacao AS FLOAT64), CAST(NULL AS STRING), CAST(l.sku_id AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), CAST(l.descricao_atividade AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(l.score_movimentacao AS FLOAT64), CAST(l.score_movimentacao AS FLOAT64)*1.0, CAST(NULL AS FLOAT64),
+    DATE(CASE WHEN EXTRACT(HOUR FROM DATETIME(l.end_ts,'America/Sao_Paulo'))>=22 THEN DATETIME_ADD(DATETIME(l.end_ts,'America/Sao_Paulo'),INTERVAL 1 DAY) WHEN EXTRACT(HOUR FROM DATETIME(l.end_ts,'America/Sao_Paulo'))<6 THEN DATETIME_SUB(DATETIME(l.end_ts,'America/Sao_Paulo'),INTERVAL 1 DAY) ELSE DATETIME(l.end_ts,'America/Sao_Paulo') END), CAST(l.batch_id AS STRING), CAST([] AS ARRAY<INT64>)
+  FROM (SELECT *, COALESCE(SAFE_CAST(end_timestamp AS TIMESTAMP),SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',end_timestamp),SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(end_timestamp,r' \([^)]*\)$',''))) AS end_ts FROM `shopper-datalakehouse-qa.Ranking_Performance.curated_lote` WHERE end_timestamp IS NOT NULL AND score_movimentacao IS NOT NULL) AS l
+),
+
+c_dark_store AS (
+  SELECT SAFE_CAST(d.cod_matricula AS INT64), CAST(d.user_name AS STRING), CAST(d.activity_start AS DATETIME), CAST(d.activity_end AS DATETIME), 'DARK_STORE', CAST(d.metric_type AS STRING), CAST(d.qty AS FLOAT64), CAST(d.cod_pedido AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), CAST(d.metric_description AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64), CAST(d.qty AS FLOAT64)*d.score_factor, TIMESTAMP_DIFF(CAST(d.activity_end AS TIMESTAMP),CAST(d.activity_start AS TIMESTAMP),SECOND)/3600.0, CAST(d.reference_date AS DATE), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.curated_dark_store` AS d WHERE d.cod_matricula IS NOT NULL
+),
+
+c_erros_gestao AS (
+  SELECT
+    eg.registration_number, CAST(eg.user_name AS STRING),
+    CAST(NULL AS DATETIME), CAST(NULL AS DATETIME),
+    'ERROS_GESTAO_ESTOQUE', 'DETRATORA',
+    CAST(eg.qtd_erros AS FLOAT64),
+    CAST(NULL AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64),
+    'ERRO GESTÃO DE ESTOQUE',
+    CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL),
+    CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64),
+    eg.penalidade_pts,
+    CAST(NULL AS FLOAT64), eg.reference_date, CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.curated_erros_gestao_estoque` AS eg
+  WHERE eg.zerado = FALSE
+    AND eg.penalidade_pts IS NOT NULL
+    AND eg.reference_date >= DATE_TRUNC(DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 1 MONTH), MONTH)
+),
+
+eventos_unificados AS (
+  SELECT registration_number, user_name, activity_start, activity_end, source_system, metric_type, qty, order_code, sku_id, is_same_day, canal_venda,
+    CASE WHEN metric_description='AUDITORIA DE CONFERENCIA MERCEARIA' AND LOWER(TRIM(pack_mode))='express' THEN 'AUDITORIA DE CONFERENCIA MERCEARIA EXPRESS' WHEN metric_description='AUDITORIA DE CONFERENCIA FRESH' AND LOWER(TRIM(pack_mode))='express' THEN 'AUDITORIA DE CONFERENCIA FRESH EXPRESS' ELSE metric_description END AS metric_description,
+    restock_list_level, restock_list_type, receivement_category, is_receivement_fresh, suggested_storage_receivement, movement_type, score_movimentacao, points, activity_worked_hours, reference_date, batch_id, sku_ids
+  FROM calc
+  UNION ALL SELECT * FROM espelho
+  UNION ALL SELECT * FROM expedicao
+  UNION ALL SELECT * FROM pre_expedicao
+  UNION ALL SELECT * FROM perdas
+  UNION ALL SELECT * FROM inventario
+  UNION ALL SELECT * FROM c_reposicao
+  UNION ALL SELECT * FROM c_recebimento
+  UNION ALL SELECT * FROM c_lote
+  UNION ALL SELECT * FROM c_dark_store
+  UNION ALL SELECT * FROM c_erros_gestao
+),
+
+pesos_turno_cache AS (
+  SELECT UPPER(TRIM(METRIC_DESCRIPTION)) AS metric_key, FC1_MANHA, FC1_TARDE, FC1_NOITE, FC2_MANHA, FC2_TARDE, FC2_NOITE, FC2_INTERMEDIARIO, FC3_MANHA, FC3_TARDE, FC3_NOITE
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.Pesos_turno`
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY UPPER(TRIM(METRIC_DESCRIPTION)) ORDER BY DATA_INICIAL DESC) = 1
+),
+
+organograma_cache AS (
+  SELECT CAST(MATRICULA AS STRING) AS matricula, UPPER(TRIM(NOME)) AS nome, UPPER(TRIM(AREA)) AS area, UPPER(TRIM(SETOR)) AS setor_principal, UPPER(TRIM(ATRIBUICAO)) AS atribuicao_principal, UPPER(TRIM(TURNO)) AS turno_principal, UPPER(TRIM(FC)) AS fc, GESTOR, CRACHA, FOLGA_FIXA, DATA_ADM
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.Organograma`
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY MATRICULA ORDER BY DATA_ADM DESC) = 1
+)
+
+SELECT
+  eu.registration_number, eu.user_name, COALESCE(org.nome,eu.user_name) AS nome,
+  org.area, org.setor_principal, org.gestor, org.atribuicao_principal, org.turno_principal, org.cracha, org.folga_fixa, org.fc, org.data_adm,
+  eu.activity_start, eu.activity_end, eu.source_system, eu.metric_type, eu.qty, eu.order_code, eu.sku_id, eu.is_same_day, eu.canal_venda,
+  eu.metric_description, eu.restock_list_level, eu.restock_list_type, eu.receivement_category, eu.is_receivement_fresh, eu.suggested_storage_receivement,
+  eu.movement_type, eu.score_movimentacao, eu.points, eu.activity_worked_hours, eu.reference_date, eu.batch_id,
+  CAST(eu.points * COALESCE(CASE WHEN org.fc='FC1' AND org.turno_principal='MANHÃ' THEN pt.FC1_MANHA WHEN org.fc='FC1' AND org.turno_principal='TARDE' THEN pt.FC1_TARDE WHEN org.fc='FC1' AND org.turno_principal='NOITE' THEN pt.FC1_NOITE WHEN org.fc='FC2' AND org.turno_principal='MANHÃ' THEN pt.FC2_MANHA WHEN org.fc='FC2' AND org.turno_principal='TARDE' THEN pt.FC2_TARDE WHEN org.fc='FC2' AND org.turno_principal='NOITE' THEN pt.FC2_NOITE WHEN org.fc='FC2' AND org.turno_principal LIKE '%INTERMEDI%' THEN pt.FC2_INTERMEDIARIO WHEN org.fc='FC3' AND org.turno_principal='MANHÃ' THEN pt.FC3_MANHA WHEN org.fc='FC3' AND org.turno_principal='TARDE' THEN pt.FC3_TARDE WHEN org.fc='FC3' AND org.turno_principal='NOITE' THEN pt.FC3_NOITE END,1.0) * CASE WHEN eu.metric_type='DETRATORA' THEN -1.0 ELSE 1.0 END AS FLOAT64) AS pontos_ponderados,
+  eu.sku_ids
+FROM eventos_unificados AS eu
+INNER JOIN organograma_cache AS org ON CAST(eu.registration_number AS STRING) = org.matricula
+LEFT JOIN pesos_turno_cache AS pt ON UPPER(TRIM(CASE WHEN eu.source_system='DARK_STORE' THEN 'ITENS PICKADOS EM FRESH' ELSE eu.metric_description END)) = pt.metric_key
+WHERE eu.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 8 DAY);

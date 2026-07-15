@@ -1,0 +1,151 @@
+name: Ranking QA — Pipeline Semanal
+
+on:
+  schedule:
+    - cron: '0 19 * * 5'  # sexta 16h BRT (UTC-3)
+
+  workflow_dispatch:
+    inputs:
+      job:
+        description: |
+          Job a executar:
+            all → todos em sequência (00→01→02→03→04→05→06)
+            00  → KPIs Operação
+            01  → Extract Points
+            02  → Expected Points Tratada
+            03  → Ranking Semanal
+            04  → Performance Liderança (Fiscais + Supervisores + Detalhada)
+            05  → Performance Não Medíveis
+            06  → Tabela Consolidada Ranking
+        required: false
+        default: 'all'
+
+jobs:
+  pipeline:
+    name: Ranking QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Autenticar no GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # ─────────────────────────────────────────────
+      # 00 — KPIs Operação
+      # ─────────────────────────────────────────────
+      - name: "00 · KPIs Operação"
+        if: >
+          github.event_name == 'schedule' ||
+          github.event.inputs.job == 'all'  ||
+          github.event.inputs.job == '00'
+        run: |
+          echo "▶ Rodando 00_kpis_operacao.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/00_kpis_operacao.sql
+
+      # ─────────────────────────────────────────────
+      # 01 — Extract Points
+      # ─────────────────────────────────────────────
+      - name: "01 · Extract Points"
+        if: >
+          github.event_name == 'schedule' ||
+          github.event.inputs.job == 'all'  ||
+          github.event.inputs.job == '01'
+        run: |
+          echo "▶ Rodando 01_performance_extract_points.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/01_performance_extract_points.sql
+
+      # ─────────────────────────────────────────────
+      # 02 — Expected Points Tratada
+      # ─────────────────────────────────────────────
+      - name: "02 · Expected Points Tratada"
+        if: >
+          github.event_name == 'schedule' ||
+          github.event.inputs.job == 'all'  ||
+          github.event.inputs.job == '02'
+        run: |
+          echo "▶ Rodando 02_expected_points_tratada.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/02_expected_points_tratada.sql
+
+      # ─────────────────────────────────────────────
+      # 03 — Ranking Semanal
+      # ─────────────────────────────────────────────
+      - name: "03 · Ranking Semanal"
+        if: >
+          github.event_name == 'schedule' ||
+          github.event.inputs.job == 'all'  ||
+          github.event.inputs.job == '03'
+        run: |
+          echo "▶ Rodando 03_ranking_semanal.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/03_ranking_semanal.sql
+
+      # ─────────────────────────────────────────────
+      # 04 — Performance Liderança
+      # ─────────────────────────────────────────────
+      - name: "04 · Performance Liderança (Fiscais + Supervisores + Detalhada)"
+        if: >
+          github.event_name == 'schedule' ||
+          github.event.inputs.job == 'all'  ||
+          github.event.inputs.job == '04'
+        run: |
+          echo "▶ Rodando 04_performance_lideranca.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/04_performance_lideranca.sql
+
+      # ─────────────────────────────────────────────
+      # 05 — Performance Não Medíveis
+      # ─────────────────────────────────────────────
+      - name: "05 · Performance Não Medíveis"
+        if: >
+          github.event_name == 'schedule' ||
+          github.event.inputs.job == 'all'  ||
+          github.event.inputs.job == '05'
+        run: |
+          echo "▶ Rodando 05_performance_nao_mediveis.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/05_performance_nao_mediveis.sql
+
+      # ─────────────────────────────────────────────
+      # 06 — Tabela Consolidada Ranking
+      # ─────────────────────────────────────────────
+      - name: "06 · Tabela Consolidada Ranking"
+        if: >
+          github.event_name == 'schedule' ||
+          github.event.inputs.job == 'all'  ||
+          github.event.inputs.job == '06'
+        run: |
+          echo "▶ Rodando 06_tabela_consolidada_ranking.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/06_tabela_consolidada_ranking.sql
