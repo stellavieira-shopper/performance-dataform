@@ -1,6 +1,6 @@
 -- ██████████ SCRIPT FINAL CONSOLIDADO: KPIs OPERAÇÃO ██████████
 -- Atualizar semanalmente após geração das mensagens FC (skill dashboard-fc-mensagens)
--- Última atualização: 16/07/2026
+-- Última atualização: 23/07/2026
 -- ATENÇÃO: Não rodar sem antes atualizar as matrículas e mensagens da semana
 
 BEGIN
@@ -119,11 +119,8 @@ BEGIN
       -- 4. GE: atribuição não-mensurável com falha registrada
       WHEN ORIGEM = 'GESTAO_ESTOQUE' AND IS_NAO_MEDIVEL = TRUE THEN 0.0
 
-      -- 5. Picking reincidente zerado — ATUALIZAR TODA SEMANA (16/07/2026)
-      WHEN MATRICULA IN ('15649') THEN 0.0
-
-      -- 6. KPIs Individuais zerados por coordenadores — ATUALIZAR TODA SEMANA (16/07/2026)
-      WHEN MATRICULA IN ('198', '12081') THEN 0.0
+      -- 5. KPIs Individuais zerados por coordenadores — ATUALIZAR TODA SEMANA (23/07/2026)
+      WHEN MATRICULA IN ('12368', '11961') THEN 0.0
 
       ELSE 1.0
     END AS MULT_MATRICULA,
@@ -136,62 +133,74 @@ BEGIN
       WHEN zerado_gestao_estoque = TRUE THEN 1.0
       WHEN IMPACTO_ERRO IN ('RUPTURA', 'PERDA', 'ERRO_CLIENTE') THEN 1.0
       WHEN ORIGEM = 'GESTAO_ESTOQUE' AND IS_NAO_MEDIVEL = TRUE THEN 1.0
-      WHEN MATRICULA IN ('15649', '198', '12081') THEN 1.0
+      WHEN MATRICULA IN ('12368', '11961') THEN 1.0
 
-      -- ── Picking individual — ATUALIZAR TODA SEMANA (16/07/2026) ──
+      -- ── Picking individual — ATUALIZAR TODA SEMANA (23/07/2026) ──
 
-      -- -50% reincidência picking (FC1)
-      WHEN MATRICULA IN ('16667', '16610', '16402') THEN 0.50
+      -- -50% reincidência picking
+      WHEN MATRICULA IN ('11635', '16113', '11205', '16209', '16195') THEN 0.50
 
-      -- -40% alocados piores picking (FC1)
-      WHEN MATRICULA IN ('13689', '14492') THEN 0.60
+      -- -40% picking
+      WHEN MATRICULA IN ('17551', '18132', '18181', '18147', '17496', '13996', '15762', '11422', '8317', '10616', '15582', '14440', '17826', '18139', '13138', '14995') THEN 0.60
 
-      -- -50% reincidência picking (FC3)
-      WHEN MATRICULA IN ('16707', '14521', '13306') THEN 0.50
+      -- KPI Individual -20% (coordenador) — ATUALIZAR TODA SEMANA (23/07/2026)
+      WHEN MATRICULA IN ('12081') THEN 0.80
 
-      -- -40% piores picking (FC3)
-      WHEN MATRICULA IN ('14791', '16856', '17653', '10802', '17750', '13347', '16611') THEN 0.60
+      -- ── Setoriais semana 23/07/2026 ──
 
-      -- -20% picking (FC3)
-      WHEN MATRICULA IN ('17791') THEN 0.80
+      -- FC1: Expedição Manhã: -10%
+      WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC1'
+           AND TURNO IN ('MANHÃ', 'MANHA') THEN 0.90
 
-      -- ── Setoriais semana 16/07/2026 ──
+      -- FC1: Reposição Mercearia (todos): -30%
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC1' THEN 0.70
+
+      -- FC1: Recebimento Mercearia Tarde: -20%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC1'
+           AND TURNO = 'TARDE' THEN 0.80
 
       -- FC1: Recebimento Fresh Manhã e Noite: -20%
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1'
            AND TURNO IN ('MANHÃ', 'MANHA', 'NOITE') THEN 0.80
 
-      -- FC1: Reposição Fresh FLV: -15%
+      -- FC1: Recebimento Fresh (demais turnos): -50%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1' THEN 0.50
+
+      -- FC1: Reposição Fresh FLV: -30%
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC1'
-           AND ATRIBUICAO_ORIGINAL LIKE '%FLV%' THEN 0.85
+           AND ATRIBUICAO_ORIGINAL LIKE '%FLV%' THEN 0.70
 
-      -- FC1: Recebimento Mercearia Tarde: -50%
-      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC1'
-           AND TURNO = 'TARDE' THEN 0.50
+      -- FC1: Reposição Fresh (todas): -20%
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC1' THEN 0.80
 
-      -- FC1: Expedição Fresh: -15%
-      WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND AREA = 'FRESH' AND FC = 'FC1' THEN 0.85
+      -- FC2: Expedição Manhã e Tarde: -10%
+      WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC2'
+           AND TURNO IN ('MANHÃ', 'MANHA', 'TARDE') THEN 0.90
 
-      -- FC2: Expedição: -20%
-      WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC2' THEN 0.80
-
-      -- FC3: Faltantes Mercearia Noite: ZERADO
-      WHEN SETOR_ORIGINAL LIKE '%FALTANTE%' AND AREA = 'MERCEARIA' AND FC = 'FC3'
+      -- FC2: Faltantes Mercearia Noite: ZERADO
+      WHEN SETOR_ORIGINAL LIKE '%FALTANTE%' AND AREA = 'MERCEARIA' AND FC = 'FC2'
            AND TURNO = 'NOITE' THEN 0.0
 
-      -- FC3: Reposição Mercearia Noite: -30%
-      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3'
+      -- FC3: Recebimento Fresh (todos): -30%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC3' THEN 0.70
+
+      -- FC3: Recebimento Mercearia Manhã e Tarde: -20%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC3'
+           AND TURNO IN ('MANHÃ', 'MANHA', 'TARDE') THEN 0.80
+
+      -- FC3: Recebimento Mercearia Noite: -30%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC3'
            AND TURNO = 'NOITE' THEN 0.70
 
-      -- FC3: Reposição Mercearia Manhã e Tarde: -20%
-      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3'
-           AND TURNO IN ('MANHÃ', 'MANHA', 'TARDE') THEN 0.80
+      -- FC3: Reposição Fresh FLV: -30%
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3'
+           AND ATRIBUICAO_ORIGINAL LIKE '%FLV%' THEN 0.70
 
       -- FC3: Reposição Fresh (todas): -20%
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3' THEN 0.80
 
-      -- FC3: Fiscal Packing e Fiscal Packer Operação Fresh: -40%
-      WHEN (SETOR_ORIGINAL LIKE '%PACKING%' OR SETOR_ORIGINAL LIKE '%PACKER%') AND FC = 'FC3' THEN 0.60
+      -- FC3: Fiscal Packer Operação Fresh e Fiscal Packing: -30%
+      WHEN (SETOR_ORIGINAL LIKE '%PACKING%' OR SETOR_ORIGINAL LIKE '%PACKER%') AND FC = 'FC3' THEN 0.70
 
       ELSE 1.0
     END AS MULT_SETOR,
@@ -229,85 +238,96 @@ BEGIN
            AND IMPACTO_ERRO NOT IN ('RUPTURA', 'PERDA')
         THEN 'VALOR DA BONIFICAÇÃO ZERADO DEVIDO A FALHA OPERACIONAL IDENTIFICADA PELA GESTÃO DE ESTOQUE. CONSULTE O FEEDBACK DE ERROS PARA DETALHES.'
 
-      -- 5. Picking reincidente zerado — ATUALIZAR TODA SEMANA (16/07/2026)
-      WHEN MATRICULA IN ('15649')
-        THEN 'VALOR DA BONIFICAÇÃO ZERADO. Você é reincidente nos 20% de colaboradores de Picking com maior taxa de erro e, por essa razão, a bonificação será zerada integralmente nesta semana.'
+      -- 5. KPIs Individuais zerados por coordenadores — ATUALIZAR TODA SEMANA (23/07/2026)
+      WHEN MATRICULA IN ('12368')
+        THEN 'VALOR DA BONIFICAÇÃO ZERADO. Sua bonificação foi zerada devido ao recebimento do SKU quiabo no dia 17/07 sem sinalização no grupo de FLV ao vivo, resultando em perda total do lote e impossibilitando a compra nas externas, o que causou ruptura ao cliente.'
+      WHEN MATRICULA IN ('11961')
+        THEN 'VALOR DA BONIFICAÇÃO ZERADO. Sua bonificação foi zerada devido ao envio de caixa vazia ao cliente nesta semana.'
 
-      -- 6. KPIs Individuais zerados por coordenadores — ATUALIZAR TODA SEMANA (16/07/2026)
-      WHEN MATRICULA IN ('198')
-        THEN 'VALOR DA BONIFICAÇÃO ZERADO. Erro na verificação da qualidade para os itens recebidos do fornecedor Batista, causando perda no fracionamento e ruptura ao cliente.'
-      WHEN MATRICULA IN ('12081')
-        THEN 'VALOR DA BONIFICAÇÃO ZERADO. Reincidência no não cumprimento das metas estabelecidas.'
+      -- 6. PICKING INDIVIDUAL — ATUALIZAR TODA SEMANA (23/07/2026)
 
-      -- 7. PICKING INDIVIDUAL — ATUALIZAR TODA SEMANA (16/07/2026)
-
-      -- -50% reincidência picking (FC1)
-      WHEN MATRICULA IN ('16667', '16610', '16402')
+      -- -50% reincidência picking
+      WHEN MATRICULA IN ('11635', '16113', '11205', '16209', '16195')
         THEN '-50% na Bonificação. Você está entre os 20% dos colaboradores de Picking que mais cometeu erros na última semana com uma taxa muito acima da esperada. (Inclui -10% de acréscimo por reincidência alternada nas listas de erro)'
 
-      -- -40% alocados piores picking (FC1)
-      WHEN MATRICULA IN ('13689', '14492')
-        THEN '-40% na Bonificação. Na última semana, você esteve entre os 20% dos colaboradores de outros setores que apresentaram as maiores taxas de erro ao serem alocados para o Picking. Independentemente da área de atuação, é indispensável manter a alta produtividade e qualidade.'
-
-      -- -50% reincidência picking (FC3)
-      WHEN MATRICULA IN ('16707', '14521', '13306')
-        THEN '-50% na Bonificação. Você está entre os 20% dos colaboradores de Picking que mais cometeu erros na última semana com uma taxa muito acima da esperada. (Inclui -10% de acréscimo por reincidência alternada nas listas de erro)'
-
-      -- -40% piores picking (FC3)
-      WHEN MATRICULA IN ('14791', '16856', '17653', '10802', '17750', '13347', '16611')
+      -- -40% picking
+      WHEN MATRICULA IN ('17551', '18132', '18181', '18147', '17496', '13996', '15762', '11422', '8317', '10616', '15582', '14440', '17826', '18139', '13138', '14995')
         THEN '-40% na Bonificação. Você está entre os 20% dos colaboradores de Picking que mais cometeu erros na última semana com uma taxa muito acima da esperada.'
 
-      -- -20% picking (FC3)
-      WHEN MATRICULA IN ('17791')
-        THEN '-20% na Bonificação. Você apresentou uma alta taxa de erros no Picking, que supera o limite aceitável. Essa performance impactou diretamente os indicadores da área e gerou mais retrabalho para outras áreas.'
+      -- KPI Individual -20% (coordenador) — ATUALIZAR TODA SEMANA (23/07/2026)
+      WHEN MATRICULA IN ('12081')
+        THEN '-20% na Bonificação. Sua bonificação teve um desconto de 20% porque a meta de vistorias não foi atingida durante o período de apuração.'
 
-      -- 8. KPIs SETORIAIS — ATUALIZAR MENSAGENS TODA SEMANA (16/07/2026)
+      -- 7. KPIs SETORIAIS — ATUALIZAR MENSAGENS TODA SEMANA (23/07/2026)
+
+      -- FC1: Expedição Manhã: -10%
+      WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC1'
+           AND TURNO IN ('MANHÃ', 'MANHA')
+        THEN '-10% na Bonificação. Os tempos de leva A e HR do turno da manhã pioraram na semana e ultrapassaram a meta, enquanto o carregamento SMD avançou e segue acima do objetivo. Precisamos retomar o controle dos tempos de leva A e HR no turno da manhã para recuperar o indicador.'
+
+      -- FC1: Reposição Mercearia (todos): -30%
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC1'
+        THEN '-30% na Bonificação. Os completos de mercearia melhoraram na semana, mas o processo de reposição está sendo burlado com jogadas em reservas não mapeadas, comprometendo a integridade dos indicadores. Precisamos garantir a execução correta da reposição nas posições mapeadas para que a melhora seja sustentável.'
+
+      -- FC1: Recebimento Mercearia Tarde: -20%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC1'
+           AND TURNO = 'TARDE'
+        THEN '-20% na Bonificação. O turno da tarde do Recebimento Mercearia apresentou questões comportamentais e falta de senso de urgência que impactam o ritmo operacional e os indicadores da área. Precisamos retomar a postura adequada e a agilidade na execução das atividades para não comprometer os resultados do setor.'
 
       -- FC1: Recebimento Fresh Manhã e Noite: -20%
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1'
            AND TURNO IN ('MANHÃ', 'MANHA', 'NOITE')
-        THEN '-20% na Bonificação. O recebimento fresh nos turnos da manhã e da noite registrou erros de conferência e produtos com qualidade ruim não sendo reportados corretamente, comprometendo os indicadores. Precisamos garantir que erros de conferência e produtos fora do padrão sejam identificados e registrados no recebimento.'
+        THEN '-20% na Bonificação. O recebimento fresh nos turnos da manhã e da noite registrou falhas de qualidade não reportadas no grupo, impactando os completos fresh que pioraram na semana. Precisamos garantir o reporte imediato de problemas de qualidade no recebimento para minimizar o impacto nos indicadores.'
 
-      -- FC1: Reposição Fresh FLV: -15%
+      -- FC1: Recebimento Fresh (demais turnos): -50%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1'
+        THEN '-50% na Bonificação. O recebimento fresh registrou falhas graves de qualidade sem reporte no grupo, gerando impacto direto no fracionamento e comprometendo os completos fresh. Precisamos garantir o reporte imediato e a rejeição de produtos fora do padrão para evitar o impacto em cadeia nos indicadores.'
+
+      -- FC1: Reposição Fresh FLV: -30%
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC1'
            AND ATRIBUICAO_ORIGINAL LIKE '%FLV%'
-        THEN '-15% na Bonificação. Os completos fresh melhoraram na semana, mas a não execução das listas de reposição FLV segue impactando os indicadores e freando a evolução mais consistente do setor. Precisamos garantir a execução completa das listas FLV para sustentar a melhora dos completos fresh.'
+        THEN '-30% na Bonificação. Os completos fresh pioraram na semana e os erros de movimentação FLV cresceram expressivamente, sendo o principal fator de impacto no indicador. Precisamos retomar a eficiência e a qualidade na execução da reposição FLV para reverter a piora dos completos fresh.'
 
-      -- FC1: Recebimento Mercearia Tarde: -50%
-      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC1'
-           AND TURNO = 'TARDE'
-        THEN '-50% na Bonificação. O turno da tarde do Recebimento Mercearia apresentou comportamentos inadequados que prejudicam o ambiente de trabalho e o ritmo operacional, incluindo atrasos nas atividades e uso indevido do coletor. Precisamos retomar a postura adequada e o cumprimento das rotinas para não comprometer o desempenho do setor.'
+      -- FC1: Reposição Fresh (todas): -20%
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC1'
+        THEN '-20% na Bonificação. Os completos fresh pioraram na semana com queda expressiva, impactada pela baixa eficiência e produtividade na execução da reposição fresh. Precisamos melhorar a eficiência da reposição para reverter a piora dos completos fresh.'
 
-      -- FC1: Expedição Fresh: -15%
-      WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND AREA = 'FRESH' AND FC = 'FC1'
-        THEN '-15% na Bonificação. Os indicadores de expedição fresh registraram melhora — SMD, leva A e HR avançaram — mas o Fiorino segue acima da meta e o setor tem espaço para uma evolução mais expressiva. Precisamos manter o ritmo de melhora e reduzir o tempo do Fiorino para que todos os indicadores se consolidem dentro das metas.'
-
-      -- FC2: Expedição: -20%
+      -- FC2: Expedição Manhã e Tarde: -10%
       WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC2'
-        THEN '-20% na Bonificação. O carregamento SMD caiu na semana e segue muito distante da meta, enquanto o HR piorou e o Fiorino registrou leve melhora. Precisamos avançar urgentemente no carregamento SMD e reverter a piora do HR para que a expedição evolua.'
-
-      -- FC3: Faltantes Mercearia Noite: ZERADO
-      WHEN SETOR_ORIGINAL LIKE '%FALTANTE%' AND AREA = 'MERCEARIA' AND FC = 'FC3'
-           AND TURNO = 'NOITE'
-        THEN 'VALOR DA BONIFICAÇÃO ZERADO. Uma caixa foi enviada ao cliente contendo apenas o brinde, sem os demais itens do pedido. O ocorrido configura erro grave no processo de separação de faltantes e, por essa razão, o setor Faltantes Mercearia Noite do FC3 terá a bonificação zerada integralmente nesta semana.'
-
-      -- FC3: Reposição Mercearia Noite: -30%
-      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3'
-           AND TURNO = 'NOITE'
-        THEN '-30% na Bonificação. Os completos de mercearia melhoraram na semana, mas a baixa efetividade na execução das listas de reposição no turno da noite segue impactando os indicadores e freando a evolução do setor. Precisamos aumentar a efetividade das listas no turno da noite para sustentar a melhora dos completos.'
-
-      -- FC3: Reposição Mercearia Manhã e Tarde: -20%
-      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3'
            AND TURNO IN ('MANHÃ', 'MANHA', 'TARDE')
-        THEN '-20% na Bonificação. Os completos de mercearia registraram melhora na semana, mas os indicadores de reposição nos turnos da manhã e da tarde ainda seguem com impacto e há espaço para evoluir. Precisamos manter a melhora na execução da reposição para que os completos de mercearia se consolidem acima da meta.'
+        THEN '-10% na Bonificação. Os tempos de leva A e HR nos turnos da manhã e da tarde pioraram na semana e seguem muito acima da meta, enquanto o Fiorino registrou leve melhora. Precisamos retomar o controle dos tempos operacionais para que a expedição evolua nos indicadores.'
+
+      -- FC2: Faltantes Mercearia Noite: ZERADO
+      WHEN SETOR_ORIGINAL LIKE '%FALTANTE%' AND AREA = 'MERCEARIA' AND FC = 'FC2'
+           AND TURNO = 'NOITE'
+        THEN 'VALOR DA BONIFICAÇÃO ZERADO. O setor Faltantes Mercearia Noite do FC2 terá a bonificação zerada integralmente nesta semana. Para mais informações sobre o motivo, consulte seu gestor direto.'
+
+      -- FC3: Recebimento Fresh (todos): -30%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC3'
+        THEN '-30% na Bonificação. Os completos fresh melhoraram na semana, mas erros operacionais no recebimento fresh persistem e seguem comprometendo os indicadores da área. Precisamos eliminar os erros operacionais no recebimento para consolidar a melhora dos completos fresh.'
+
+      -- FC3: Recebimento Mercearia Manhã e Tarde: -20%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC3'
+           AND TURNO IN ('MANHÃ', 'MANHA', 'TARDE')
+        THEN '-20% na Bonificação. Os completos de mercearia melhoraram na semana, mas os indicadores de recebimento mercearia nos turnos da manhã e da tarde seguem com impacto e as divergências de estoque aumentaram levemente. Precisamos reduzir o impacto do recebimento nos indicadores para sustentar a melhora dos completos.'
+
+      -- FC3: Recebimento Mercearia Noite: -30%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC3'
+           AND TURNO = 'NOITE'
+        THEN '-30% na Bonificação. Os completos de mercearia melhoraram na semana, mas o recebimento mercearia no turno da noite segue com impacto nos indicadores e as divergências de estoque aumentaram levemente. Precisamos reduzir o impacto do recebimento no turno da noite para manter a evolução dos completos.'
+
+      -- FC3: Reposição Fresh FLV: -30%
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3'
+           AND ATRIBUICAO_ORIGINAL LIKE '%FLV%'
+        THEN '-30% na Bonificação. Os completos fresh melhoraram na semana, mas a reposição FLV segue com falhas operacionais e movimentações erradas que impedem uma evolução mais consistente dos indicadores. Precisamos eliminar as movimentações erradas na reposição FLV para sustentar a melhora dos completos fresh.'
 
       -- FC3: Reposição Fresh (todas): -20%
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3'
-        THEN '-20% na Bonificação. Os completos fresh melhoraram na semana e avançaram dentro da faixa da meta, mas o indicador de reposição fresh ainda apresenta impacto. Precisamos manter a evolução na execução da reposição para consolidar os completos fresh de forma consistente acima da meta.'
+        THEN '-20% na Bonificação. Os completos fresh melhoraram na semana, mas os indicadores de reposição fresh seguem andando de lado, sem a evolução necessária para consolidar os resultados. Precisamos avançar na qualidade da execução da reposição fresh para manter a melhora dos completos.'
 
-      -- FC3: Fiscal Packing e Fiscal Packer Operação Fresh: -40%
+      -- FC3: Fiscal Packer Operação Fresh e Fiscal Packing: -30%
       WHEN (SETOR_ORIGINAL LIKE '%PACKING%' OR SETOR_ORIGINAL LIKE '%PACKER%') AND FC = 'FC3'
-        THEN '-40% na Bonificação. O setor registrou divergências na liberação de pedidos com volumes trocados e notas fiscais incorretas, comprometendo a operação e gerando retrabalho para outras áreas. Precisamos eliminar as divergências na liberação de pedidos para garantir a integridade das notas e dos volumes entregues.'
+        THEN '-30% na Bonificação. O setor registrou divergências na liberação de pedidos com volumes trocados e notas fiscais incorretas, comprometendo os indicadores. Precisamos eliminar as divergências na liberação de pedidos para garantir a integridade das notas e dos volumes.'
 
       ELSE NULL
     END AS OBSERVACAO_KPI,
