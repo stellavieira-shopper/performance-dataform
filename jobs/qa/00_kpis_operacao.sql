@@ -159,12 +159,13 @@ BEGIN
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC1'
            AND TURNO = 'TARDE' THEN 0.80
 
-      -- FC1: Recebimento Fresh Manhã e Noite: -20%
+      -- FC1: Recebimento Fresh Manhã: -20%
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1'
-           AND TURNO IN ('MANHÃ', 'MANHA', 'NOITE') THEN 0.80
+           AND TURNO IN ('MANHÃ', 'MANHA') THEN 0.80
 
-      -- FC1: Recebimento Fresh (demais turnos): -50%
-      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1' THEN 0.50
+      -- FC1: Recebimento Fresh Noite: -50%
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1'
+           AND TURNO = 'NOITE' THEN 0.50
 
       -- FC1: Reposição Fresh FLV: -30%
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC1'
@@ -270,14 +271,15 @@ BEGIN
            AND TURNO = 'TARDE'
         THEN '-20% na Bonificação. O turno da tarde do Recebimento Mercearia apresentou questões comportamentais e falta de senso de urgência que impactam o ritmo operacional e os indicadores da área. Precisamos retomar a postura adequada e a agilidade na execução das atividades para não comprometer os resultados do setor.'
 
-      -- FC1: Recebimento Fresh Manhã e Noite: -20%
+      -- FC1: Recebimento Fresh Manhã: -20%
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1'
-           AND TURNO IN ('MANHÃ', 'MANHA', 'NOITE')
-        THEN '-20% na Bonificação. O recebimento fresh nos turnos da manhã e da noite registrou falhas de qualidade não reportadas no grupo, impactando os completos fresh que pioraram na semana. Precisamos garantir o reporte imediato de problemas de qualidade no recebimento para minimizar o impacto nos indicadores.'
+           AND TURNO IN ('MANHÃ', 'MANHA')
+        THEN '-20% na Bonificação. O recebimento fresh no turno da manhã registrou falhas de qualidade não reportadas no grupo, impactando os completos fresh que pioraram na semana. Precisamos garantir o reporte imediato de problemas de qualidade no recebimento para minimizar o impacto nos indicadores.'
 
-      -- FC1: Recebimento Fresh (demais turnos): -50%
+      -- FC1: Recebimento Fresh Noite: -50%
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1'
-        THEN '-50% na Bonificação. O recebimento fresh registrou falhas graves de qualidade sem reporte no grupo, gerando impacto direto no fracionamento e comprometendo os completos fresh. Precisamos garantir o reporte imediato e a rejeição de produtos fora do padrão para evitar o impacto em cadeia nos indicadores.'
+           AND TURNO = 'NOITE'
+        THEN '-50% na Bonificação. O recebimento fresh no turno da noite registrou falhas graves de qualidade sem reporte no grupo, gerando impacto direto no fracionamento e comprometendo os completos fresh. Precisamos garantir o reporte imediato e a rejeição de produtos fora do padrão para evitar o impacto em cadeia nos indicadores.'
 
       -- FC1: Reposição Fresh FLV: -30%
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC1'
