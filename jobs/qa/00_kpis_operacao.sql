@@ -177,10 +177,6 @@ BEGIN
       WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC2'
            AND TURNO IN ('MANHÃ', 'MANHA', 'TARDE') THEN 0.90
 
-      -- FC2: Faltantes Mercearia Noite: ZERADO
-      WHEN SETOR_ORIGINAL LIKE '%FALTANTE%' AND AREA = 'MERCEARIA' AND FC = 'FC2'
-           AND TURNO = 'NOITE' THEN 0.0
-
       -- FC3: Recebimento Fresh (todos): -30%
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC3' THEN 0.70
 
@@ -296,11 +292,6 @@ BEGIN
       WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC2'
            AND TURNO IN ('MANHÃ', 'MANHA', 'TARDE')
         THEN '-10% na Bonificação. Os tempos de leva A e HR nos turnos da manhã e da tarde pioraram na semana e seguem muito acima da meta, enquanto o Fiorino registrou leve melhora. Precisamos retomar o controle dos tempos operacionais para que a expedição evolua nos indicadores.'
-
-      -- FC2: Faltantes Mercearia Noite: ZERADO
-      WHEN SETOR_ORIGINAL LIKE '%FALTANTE%' AND AREA = 'MERCEARIA' AND FC = 'FC2'
-           AND TURNO = 'NOITE'
-        THEN 'VALOR DA BONIFICAÇÃO ZERADO. O setor Faltantes Mercearia Noite do FC2 terá a bonificação zerada integralmente nesta semana. Para mais informações sobre o motivo, consulte seu gestor direto.'
 
       -- FC3: Recebimento Fresh (todos): -30%
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC3'
