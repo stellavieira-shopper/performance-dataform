@@ -316,11 +316,11 @@ BEGIN
       WHEN MATRICULA IN ('18191', '8224')
         THEN 'Você não atingiu a contagem mínima necessária para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
 
-      -- GE: Não bateu acuracidade mínima (31/07/2026)
+      -- GE FC3: Não bateu acuracidade mínima (31/07/2026)
       WHEN MATRICULA IN ('18335')
         THEN 'Você não atingiu a acuracidade mínima necessária para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
 
-      -- GE: Detrator por desempenho ruim (31/07/2026)
+      -- GE FC3: Detrator por desempenho ruim (31/07/2026)
       WHEN MATRICULA IN ('16436')
         THEN '-100.000 pontos detratores na Performance. Você recebeu uma detratora pela atividade de inventário de Gestão de Estoque nesta semana devido ao desempenho ruim nas contagens. Precisamos reduzir os erros para conseguir pontuar positivamente por essa atividade e ficar mais próximo da bonificação.'
 
