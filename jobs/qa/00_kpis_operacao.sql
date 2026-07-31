@@ -294,7 +294,25 @@ BEGIN
       WHEN MATRICULA IN ('9922', '18430')
         THEN '-20% na Bonificação. Sua bonificação teve um desconto de 20% pela montagem de pedidos MK em caixas de papelão em vez das caixas retornáveis exigidas pelo processo.'
 
-      -- GE: Não bateu contagem mínima (31/07/2026)
+      -- GE FC1: Não bateu contagem mínima (31/07/2026)
+      WHEN MATRICULA IN ('11080')
+        THEN 'Você não atingiu a contagem mínima necessária para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+
+      -- GE FC1: Não bateu acuracidade mínima (31/07/2026)
+      WHEN MATRICULA IN ('11145')
+        THEN 'Você não atingiu a acuracidade mínima necessária para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+
+      -- GE FC1: Detratores por desempenho ruim (31/07/2026)
+      WHEN MATRICULA IN ('6975', '17828')
+        THEN '-100.000 pontos detratores na Performance. Você recebeu uma detratora pela atividade de inventário de Gestão de Estoque nesta semana devido ao desempenho ruim nas contagens. Precisamos reduzir os erros para conseguir pontuar positivamente por essa atividade e ficar mais próximo da bonificação.'
+      WHEN MATRICULA IN ('17421', '13232', '11258')
+        THEN '-200.000 pontos detratores na Performance. Você recebeu uma detratora pela atividade de inventário de Gestão de Estoque nesta semana devido ao desempenho ruim nas contagens. Precisamos reduzir os erros para conseguir pontuar positivamente por essa atividade e ficar mais próximo da bonificação.'
+
+      -- GE FC2: Detratores por baixo desempenho (31/07/2026)
+      WHEN MATRICULA IN ('14033', '17434', '11558', '16819')
+        THEN '-100.000 pontos detratores na Performance. Você recebeu uma detratora pela atividade de inventário de Gestão de Estoque nesta semana devido ao baixo desempenho nas contagens. Precisamos reduzir os erros para conseguir pontuar positivamente por essa atividade e ficar mais próximo da bonificação.'
+
+      -- GE FC3: Não bateu contagem mínima (31/07/2026)
       WHEN MATRICULA IN ('18191', '8224')
         THEN 'Você não atingiu a contagem mínima necessária para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
 
