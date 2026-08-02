@@ -120,7 +120,7 @@ BEGIN
       WHEN ORIGEM = 'GESTAO_ESTOQUE' AND IS_NAO_MEDIVEL = TRUE THEN 0.0
 
       -- Fraude crachá expedição — PRIORIDADE MÁXIMA (31/07/2026)
-      WHEN MATRICULA IN ('6244', '13218', '9584', '17001', '17119') THEN 0.0
+      WHEN MATRICULA IN ('6244', '16320', '14456', '16671', '16726', '9584', '17119') THEN 0.0
 
       -- 5. Picking zerado reincidente — ATUALIZAR TODA SEMANA (31/07/2026)
       WHEN MATRICULA IN ('18147', '16209') THEN 0.0
@@ -139,7 +139,7 @@ BEGIN
       WHEN zerado_gestao_estoque = TRUE THEN 1.0
       WHEN IMPACTO_ERRO IN ('RUPTURA', 'PERDA', 'ERRO_CLIENTE') THEN 1.0
       WHEN ORIGEM = 'GESTAO_ESTOQUE' AND IS_NAO_MEDIVEL = TRUE THEN 1.0
-      WHEN MATRICULA IN ('6244', '13218', '9584', '17001', '17119', '18147', '16209', '12596', '15907', '13356') THEN 1.0
+      WHEN MATRICULA IN ('6244', '16320', '14456', '16671', '16726', '9584', '17119', '18147', '16209', '12596', '15907', '13356') THEN 1.0
 
       -- ── Picking individual — ATUALIZAR TODA SEMANA (31/07/2026) ──
 
@@ -268,10 +268,10 @@ BEGIN
         THEN 'VALOR DA BONIFICAÇÃO ZERADO DEVIDO A FALHA OPERACIONAL IDENTIFICADA PELA GESTÃO DE ESTOQUE. CONSULTE O FEEDBACK DE ERROS PARA DETALHES.'
 
       -- FRAUDE crachá expedição — PRIORIDADE MÁXIMA (31/07/2026)
-      WHEN MATRICULA IN ('13218', '17001')
+      WHEN MATRICULA IN ('6244', '16320', '14456', '16671', '16726')
         THEN 'VALOR DA BONIFICAÇÃO ZERADO. Foi identificada uma fraude no uso de crachá nesta semana, com concentração irregular de volumes em um único colaborador, incluindo registros realizados em dia de folga. Por comprometer a integridade do processo de carregamento e a confiabilidade dos dados, todos os envolvidos no turno terão a bonificação zerada integralmente.'
-      WHEN MATRICULA IN ('9584', '6244')
-        THEN 'VALOR DA BONIFICAÇÃO ZERADO. Foi identificada uma fraude no uso de crachá nesta semana, com concentração irregular de volumes em um único colaborador, incluindo registros realizados em dia de folga. Como líderes responsáveis pelo turno, a ocorrência reflete diretamente na gestão do processo e na supervisão da equipe, resultando no zeramento integral da bonificação.'
+      WHEN MATRICULA IN ('9584')
+        THEN 'VALOR DA BONIFICAÇÃO ZERADO. Foi identificada uma fraude no uso de crachá nesta semana, com concentração irregular de volumes em um único colaborador, incluindo registros realizados em dia de folga. Como líder responsável pelo turno, a ocorrência reflete diretamente na gestão do processo e na supervisão da equipe, resultando no zeramento integral da bonificação.'
       WHEN MATRICULA IN ('17119')
         THEN 'VALOR DA BONIFICAÇÃO ZERADO. Foi identificada uma fraude no uso de crachá nesta semana, com volumes registrados em seu nome em dia de folga, caracterizando uso indevido de credencial e manipulação dos dados de carregamento. A ocorrência está sendo apurada e está sujeita a medidas disciplinares.'
 
