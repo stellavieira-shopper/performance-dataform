@@ -122,7 +122,10 @@ BEGIN
       -- Fraude crachá expedição — PRIORIDADE MÁXIMA (31/07/2026)
       WHEN MATRICULA IN ('6244', '16320', '14456', '16671', '16726', '9584', '17119') THEN 0.0
 
-      -- 5. KPIs Individuais desconto parcial — ATUALIZAR TODA SEMANA (07/08/2026)
+      -- 5. KPIs Individuais zerados por coordenadores — ATUALIZAR TODA SEMANA (07/08/2026)
+      WHEN MATRICULA IN ('11681') THEN 0.0
+
+      -- 6. KPIs Individuais desconto parcial — ATUALIZAR TODA SEMANA (07/08/2026)
       WHEN MATRICULA IN ('330') THEN 0.70
       WHEN MATRICULA IN ('15647') THEN 0.60
 
@@ -137,7 +140,7 @@ BEGIN
       WHEN zerado_gestao_estoque = TRUE THEN 1.0
       WHEN IMPACTO_ERRO IN ('RUPTURA', 'PERDA', 'ERRO_CLIENTE') THEN 1.0
       WHEN ORIGEM = 'GESTAO_ESTOQUE' AND IS_NAO_MEDIVEL = TRUE THEN 1.0
-      WHEN MATRICULA IN ('6244', '16320', '14456', '16671', '16726', '9584', '17119', '330', '15647') THEN 1.0
+      WHEN MATRICULA IN ('6244', '16320', '14456', '16671', '16726', '9584', '17119', '11681', '330', '15647') THEN 1.0
 
       -- ── Picking individual — ATUALIZAR TODA SEMANA (07/08/2026) ──
 
@@ -275,7 +278,11 @@ BEGIN
       WHEN MATRICULA IN ('17119')
         THEN 'VALOR DA BONIFICAÇÃO ZERADO. Foi identificada uma fraude no uso de crachá nesta semana, com volumes registrados em seu nome em dia de folga, caracterizando uso indevido de credencial e manipulação dos dados de carregamento. A ocorrência está sendo apurada e está sujeita a medidas disciplinares.'
 
-      -- 5. KPIs Individuais desconto parcial — ATUALIZAR TODA SEMANA (07/08/2026)
+      -- 5. KPIs Individuais zerados por coordenadores — ATUALIZAR TODA SEMANA (07/08/2026)
+      WHEN MATRICULA IN ('11681')
+        THEN 'VALOR DA BONIFICAÇÃO ZERADO. Sua bonificação foi zerada devido ao baixo rendimento nas atividades de inventário e a erros recorrentes identificados nesta semana.'
+
+      -- 6. KPIs Individuais desconto parcial — ATUALIZAR TODA SEMANA (07/08/2026)
       WHEN MATRICULA IN ('330')
         THEN '-30% na Bonificação. Sua bonificação teve um desconto de 30% devido ao ajuste incorreto da Banana Prata Verde nesta semana, que gerou uma substituição indevida e impactou diretamente a experiência do cliente, que recebeu um produto diferente do solicitado.'
       WHEN MATRICULA IN ('15647')
