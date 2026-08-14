@@ -252,6 +252,26 @@ BEGIN
       WHEN MATRICULA IN ('17655', '18690')
         THEN '-20% na Bonificação. Você apresentou uma alta taxa de erros no Picking, que supera o limite aceitável. Essa performance impactou diretamente os indicadores da área e gerou mais retrabalho para outras áreas.'
 
+      -- GE: Não atingiu posições mínimas e acuracidade mínima (14/08/2026)
+      WHEN MATRICULA IN ('11145', '13793')
+        THEN 'Você não atingiu o mínimo de posições nem a acuracidade mínima necessários para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+
+      -- GE: Não atingiu posições mínimas (14/08/2026)
+      WHEN MATRICULA IN ('13106', '14011')
+        THEN 'Você não atingiu as posições mínimas necessárias para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+
+      -- GE: Não atingiu o tempo médio mínimo (14/08/2026)
+      WHEN MATRICULA IN ('17470', '18464')
+        THEN 'Você não atingiu o tempo médio mínimo necessário para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+
+      -- GE: Não atingiu as contagens mínimas (14/08/2026)
+      WHEN MATRICULA IN ('16984', '9643', '12371')
+        THEN 'Você não atingiu as contagens mínimas necessárias para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+
+      -- GE: Detrator por baixa performance (14/08/2026)
+      WHEN MATRICULA IN ('17052', '16436')
+        THEN '-100.000 pontos detratores na Performance. Você recebeu uma detratora pela atividade de inventário de Gestão de Estoque nesta semana devido ao baixo desempenho nas contagens. Precisamos reduzir os erros para conseguir pontuar positivamente por essa atividade e ficar mais próximo da bonificação.'
+
       -- 7. KPIs SETORIAIS — ATUALIZAR MENSAGENS TODA SEMANA (14/08/2026)
 
       -- FC1: Reposição Fresh (todos os turnos): -10%
