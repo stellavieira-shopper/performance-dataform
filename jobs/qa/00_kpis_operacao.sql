@@ -138,19 +138,16 @@ BEGIN
       -- ── Picking individual — ATUALIZAR TODA SEMANA (14/08/2026) ──
 
       -- 0% zerado picking reincidente
-      WHEN MATRICULA IN ('13689', '15565', '13356', '18337', '18467') THEN 0.0
+      WHEN MATRICULA IN ('18458') THEN 0.0
 
       -- -50% reincidência picking
-      WHEN MATRICULA IN ('17053', '9697', '17551', '17653', '16856') THEN 0.50
+      WHEN MATRICULA IN ('14268') THEN 0.50
 
       -- -40% outros setores alocados no picking
-      WHEN MATRICULA IN ('18537', '18511', '11865', '17798', '15412') THEN 0.60
+      WHEN MATRICULA IN ('8899') THEN 0.60
 
       -- -40% picking
-      WHEN MATRICULA IN ('18458', '18130', '18632', '18494', '18556', '18666') THEN 0.60
-
-      -- -20% picking
-      WHEN MATRICULA IN ('17655', '18690') THEN 0.80
+      WHEN MATRICULA IN ('18614', '18507', '18890') THEN 0.60
 
       -- ── Setoriais semana 14/08/2026 ──
 
@@ -233,24 +230,20 @@ BEGIN
       -- 6. PICKING INDIVIDUAL — ATUALIZAR TODA SEMANA (14/08/2026)
 
       -- 0% zerado picking reincidente
-      WHEN MATRICULA IN ('13689', '15565', '13356', '18337', '18467')
+      WHEN MATRICULA IN ('18458')
         THEN 'VALOR DA BONIFICAÇÃO ZERADO. Colaboradores reincidentes nos 20% Piores com maior taxa de erro no Picking.'
 
       -- -50% reincidência picking
-      WHEN MATRICULA IN ('17053', '9697', '17551', '17653', '16856')
+      WHEN MATRICULA IN ('14268')
         THEN '-50% na Bonificação. Você está entre os 20% dos colaboradores de Picking que mais cometeu erros na última semana com uma taxa muito acima da esperada. (Inclui -10% de acréscimo por reincidência alternada nas listas de erro)'
 
       -- -40% outros setores alocados no picking
-      WHEN MATRICULA IN ('18537', '18511', '11865', '17798', '15412')
+      WHEN MATRICULA IN ('8899')
         THEN '-40% na Bonificação. Na última semana, você esteve entre os 20% dos colaboradores de outros setores que apresentaram as maiores taxas de erro ao serem alocados para o Picking. Independentemente da área de atuação, é indispensável manter a alta produtividade e qualidade.'
 
       -- -40% picking
-      WHEN MATRICULA IN ('18458', '18130', '18632', '18494', '18556', '18666')
+      WHEN MATRICULA IN ('18614', '18507', '18890')
         THEN '-40% na Bonificação. Você está entre os 20% dos colaboradores de Picking que mais cometeu erros na última semana com uma taxa muito acima da esperada.'
-
-      -- -20% picking
-      WHEN MATRICULA IN ('17655', '18690')
-        THEN '-20% na Bonificação. Você apresentou uma alta taxa de erros no Picking, que supera o limite aceitável. Essa performance impactou diretamente os indicadores da área e gerou mais retrabalho para outras áreas.'
 
       -- GE: Não atingiu posições mínimas e acuracidade mínima (14/08/2026)
       WHEN MATRICULA IN ('11145', '13793')
