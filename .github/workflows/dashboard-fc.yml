@@ -1,0 +1,44 @@
+name: Dashboard FC — Gerar Mensagens
+
+on:
+  workflow_dispatch:
+    inputs:
+      data:
+        description: "Data no formato DD/MM/AAAA (padrão: hoje)"
+        required: false
+        default: ""
+
+jobs:
+  gerar-mensagens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: pip install -r agents/dashboard-fc/requirements.txt
+
+      - name: Gerar mensagens FC
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          DATA_ARG=""
+          if [ -n "${{ github.event.inputs.data }}" ]; then
+            DATA_ARG="--data ${{ github.event.inputs.data }}"
+          fi
+          python agents/dashboard-fc/dashboard_fc_auto.py $DATA_ARG --output-dir /tmp/relatorios-fc
+
+      - name: Upload PDFs como artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorios-fc-${{ github.run_number }}
+          path: /tmp/relatorios-fc/*.pdf
+          retention-days: 30
