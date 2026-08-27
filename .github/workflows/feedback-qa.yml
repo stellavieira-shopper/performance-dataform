@@ -1,0 +1,140 @@
+name: Feedbacks de Performance — QA
+
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: |
+          Job a executar:
+            all              → todos (07 primeiro, depois 08-13 + relatorio)
+            07               → Tabela_Base_Feedback_Operacional
+            08               → Tabela_Base_Feedback_Fiscais
+            09               → Tabela_Base_Feedback_Supervisores
+            10               → Tabela_Comparativo_Atividades
+            11               → Tabela_Ocorrencias_Semana
+            12               → Tabela_Base_Feedback_Nao_Mediveis
+            13               → Tabela_Comparativo_Equipe_Fiscal
+            relatorio        → só gera PDF de bônus (sem rodar BQ)
+        required: false
+        default: 'all'
+      data_inicio:
+        description: 'Início do período (AAAA-MM-DD) — deixe em branco para automático (última sexta)'
+        required: false
+        default: ''
+      data_fim:
+        description: 'Fim do período (AAAA-MM-DD) — deixe em branco para automático (última quinta)'
+        required: false
+        default: ''
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: "07 · Feedback Operacional (base — roda primeiro)"
+        if: github.event.inputs.job == 'all' || github.event.inputs.job == '07'
+        run: |
+          echo "▶ Rodando 07_feedback_operacional.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/07_feedback_operacional.sql
+
+      - name: "08 · Feedback Fiscais"
+        if: github.event.inputs.job == 'all' || github.event.inputs.job == '08'
+        run: |
+          echo "▶ Rodando 08_feedback_fiscais.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/08_feedback_fiscais.sql
+
+      - name: "09 · Feedback Supervisores"
+        if: github.event.inputs.job == 'all' || github.event.inputs.job == '09'
+        run: |
+          echo "▶ Rodando 09_feedback_supervisores.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/09_feedback_supervisores.sql
+
+      - name: "10 · Comparativo Atividades"
+        if: github.event.inputs.job == 'all' || github.event.inputs.job == '10'
+        run: |
+          echo "▶ Rodando 10_feedback_comparativo_atividades.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/10_feedback_comparativo_atividades.sql
+
+      - name: "11 · Ocorrências da Semana"
+        if: github.event.inputs.job == 'all' || github.event.inputs.job == '11'
+        run: |
+          echo "▶ Rodando 11_feedback_ocorrencias.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/11_feedback_ocorrencias.sql
+
+      - name: "12 · Feedback Não Mensuráveis"
+        if: github.event.inputs.job == 'all' || github.event.inputs.job == '12'
+        run: |
+          echo "▶ Rodando 12_feedback_nao_mediveis.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/12_feedback_nao_mediveis.sql
+
+      - name: "13 · Comparativo Equipe-Fiscal"
+        if: github.event.inputs.job == 'all' || github.event.inputs.job == '13'
+        run: |
+          echo "▶ Rodando 13_feedback_comparativo_equipe_fiscal.sql"
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            < jobs/qa/13_feedback_comparativo_equipe_fiscal.sql
+
+      - name: "Relatorio · Setup Python"
+        if: github.event.inputs.job == 'all' || github.event.inputs.job == 'relatorio'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: "Relatorio · Instalar dependencias"
+        if: github.event.inputs.job == 'all' || github.event.inputs.job == 'relatorio'
+        run: pip install google-cloud-bigquery reportlab python-dotenv
+
+      - name: "Relatorio · Gerar PDF de bonus"
+        if: github.event.inputs.job == 'all' || github.event.inputs.job == 'relatorio'
+        env:
+          PROJECT_ID: shopper-datalakehouse-qa
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-key.json
+          RELATORIO_DATA_INICIO: ${{ github.event.inputs.data_inicio }}
+          RELATORIO_DATA_FIM: ${{ github.event.inputs.data_fim }}
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ runner.temp }}/gcp-key.json
+          python scripts/relatorio_bonus_ranking.py
+
+      - name: "Relatorio · Upload artefatos"
+        if: always() && (github.event.inputs.job == 'all' || github.event.inputs.job == 'relatorio')
+        uses: actions/upload-artifact@v4
+        with:
+          name: bonus-ranking-${{ github.run_id }}
+          path: Bonus_Ranking_*.pdf
+          retention-days: 30

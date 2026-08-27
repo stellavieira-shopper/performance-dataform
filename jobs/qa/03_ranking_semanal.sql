@@ -110,7 +110,6 @@ BEGIN
       AND UPPER(TRIM(o.ATRIBUICAO)) NOT IN (
         'RONDA/REPOSITOR FLV','IMPRESSÃO DE ROMANEIO','AUXILIAR NF','AUXILIAR NFE'
       )
-      AND NOT (UPPER(TRIM(o.FC)) = 'FC2' AND UPPER(TRIM(o.ATRIBUICAO)) = 'INVENTÁRIO')
   ),
 
   DadosMedidas AS (
@@ -136,7 +135,9 @@ BEGIN
   ),
 
   ErrosGestaoEstoque AS (
-    SELECT registration_number AS MATRICULA, qtd_erros AS ERROS_GESTAO_ESTOQUE
+    SELECT
+      registration_number AS MATRICULA,
+      qtd_erros           AS ERROS_GESTAO_ESTOQUE
     FROM `shopper-datalakehouse-qa.Ranking_Performance.curated_erros_gestao_estoque`
     WHERE reference_date = v_end_date
   ),
@@ -289,7 +290,7 @@ BEGIN
     SELECT c.*,
       COALESCE(kpi.mult_total, 1.0) AS mult_total, kpi.kpi_obs,
       SAFE_DIVIDE(TOTAL_ERROS_GERAL, TOTAL_ITENS_GERAL) AS TAXA_ERROS,
-      (valid_points * LEAST(1.7, factor)) AS pontuacao_potencial,
+      (valid_points * LEAST(1.5, factor)) AS pontuacao_potencial,
       CASE WHEN motivo_afastamento IS NOT NULL THEN motivo_afastamento
            WHEN FALTAS > 0        THEN 'Falta'
            WHEN ADVERTENCIAS > 0  THEN 'Advertência'
@@ -357,7 +358,7 @@ BEGIN
     p.status_ranking, p.motivo_desqualificacao, p.pontuacao_final, p.pontuacao_potencial,
     COALESCE(p.posicao_ranking_fc, 0) AS posicao_ranking_fc,
     COALESCE(ROUND(p.VALOR_A_RECEBER_ANTES_DO_KPI * p.mult_total, 2), 0) AS valor_bonificacao,
-    p.EXPECTED_POINTS, LEAST(1.7, p.factor) AS EXPECTED_FACTOR,
+    p.EXPECTED_POINTS, LEAST(1.5, p.factor) AS EXPECTED_FACTOR,
     p.FALTAS, p.ATESTADOS, p.ADVERTENCIAS, p.ALOCACAO_INDEVIDA,
     FORMAT('%d (%02d:%02d:%02d)', p.qtd_delay, DIV(p.total_segundos_delay,3600), DIV(MOD(p.total_segundos_delay,3600),60), MOD(p.total_segundos_delay,60)) AS atrasos,
     FORMAT('%d (%02d:%02d:%02d)', p.qtd_hours_declaration, DIV(p.total_segundos_declaration,3600), DIV(MOD(p.total_segundos_declaration,3600),60), MOD(p.total_segundos_declaration,60)) AS declaracao_horas,

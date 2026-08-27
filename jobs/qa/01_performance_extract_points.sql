@@ -161,17 +161,47 @@ espelho AS (
 ),
 
 expedicao AS (
-  SELECT SAFE_CAST(exp.MATRICULA AS INT64), CAST(u.user_name AS STRING), CAST(NULL AS DATETIME), CAST(NULL AS DATETIME), 'EXPEDICAO_TRATADA', 'PROMOTORA', SUM(SAFE_CAST(exp.VOLUMES AS FLOAT64)), CAST(NULL AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), IF(exp.E_SMD,'VOLUMES SMD EXPEDIDOS','VOLUMES EXPEDIDOS'), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64), SUM(SAFE_CAST(exp.VOLUMES AS FLOAT64))*1.0, CAST(NULL AS FLOAT64), CAST(exp.DATA AS DATE), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.EXPEDIÇÃO TRATADA` AS exp
-  LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u ON u.registration_number=SAFE_CAST(exp.MATRICULA AS INT64)
-  WHERE exp.MATRICULA IS NOT NULL AND exp.DATA IS NOT NULL
-  GROUP BY exp.MATRICULA, u.user_name, exp.DATA, exp.E_SMD
+  SELECT
+    CAST(ex.registration_number AS INT64),
+    CAST(ex.user_name           AS STRING),
+    CAST(ex.activity_start      AS DATETIME),
+    CAST(ex.activity_end        AS DATETIME),
+    'EXPEDICAO_TABLE',
+    CAST(ex.metric_type         AS STRING),
+    CAST(ex.qty                 AS FLOAT64),
+    CAST(NULL AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64),
+    CAST(ex.metric_description  AS STRING),
+    CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL),
+    CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64),
+    CAST(ex.qty AS FLOAT64) * 1.0,
+    CAST(NULL AS FLOAT64),
+    CAST(ex.reference_date      AS DATE),
+    CAST(NULL AS STRING),
+    CAST([] AS ARRAY<INT64>)
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.vw_expedicao_curated` AS ex
+  WHERE ex.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 15 DAY)
 ),
 
 pre_expedicao AS (
-  SELECT SAFE_CAST(pe.Matricula AS INT64), CAST(pe.NOME AS STRING), CAST(NULL AS DATETIME), CAST(NULL AS DATETIME), 'PRE_EXPEDICAO_TABLE', UPPER(TRIM(pe.metric_type)), SAFE_CAST(pe.Qtd_pedidos_mapeados AS FLOAT64), CAST(NULL AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), 'PEDIDOS MAPEADOS', CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64), SAFE_CAST(pe.Qtd_pedidos_mapeados AS FLOAT64)*1.0, CAST(NULL AS FLOAT64), CAST(pe.Data AS DATE), CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.Pré-Expedição` AS pe
-  WHERE pe.Matricula IS NOT NULL AND pe.Data IS NOT NULL
+  SELECT
+    CAST(pe.registration_number AS INT64),
+    CAST(pe.user_name           AS STRING),
+    CAST(pe.activity_start      AS DATETIME),
+    CAST(pe.activity_end        AS DATETIME),
+    'PRE_EXPEDICAO_TABLE',
+    CAST(pe.metric_type         AS STRING),
+    CAST(pe.qty                 AS FLOAT64),
+    CAST(NULL AS STRING), CAST(NULL AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64),
+    CAST(pe.metric_description  AS STRING),
+    CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL),
+    CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(NULL AS FLOAT64),
+    CAST(pe.qty AS FLOAT64) * 1.0,
+    CAST(NULL AS FLOAT64),
+    CAST(pe.reference_date      AS DATE),
+    CAST(NULL AS STRING),
+    CAST([] AS ARRAY<INT64>)
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.vw_pre_expedicao_curated` AS pe
+  WHERE pe.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 15 DAY)
 ),
 
 perdas AS (

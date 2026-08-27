@@ -1,0 +1,101 @@
+name: Pagamento de Performance — QA
+
+# Secrets necessários:
+#   GCP_SA_KEY        → service account JSON (BigQuery) — já existe
+#   SHEETS_TOKEN_JSON → conteúdo do sheets_token.json local
+#                       (gere com: cat assiduidade-agent/sheets_token.json)
+
+on:
+  workflow_dispatch:
+    inputs:
+      data_inicio:
+        description: 'Início do período (AAAA-MM-DD) — obrigatório'
+        required: true
+      etapa:
+        description: |
+          Etapa a executar:
+            all        → tudo em ordem: bonus-bq → bonus-planilha → carteira-planilha
+            bonus-bq   → adicionar_bonus_pdf.py   (atualiza carteira_operação no BQ com bônus)
+            bonus-plan → subir_bonus_planilha.py  (cria planilha de bônus no Drive)
+            planilha   → preencher_planilha_performance.py  (preenche [Performance][Operação])
+        required: false
+        default: 'all'
+
+jobs:
+  pagamento:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          pip install \
+            google-cloud-bigquery \
+            google-auth \
+            google-auth-oauthlib \
+            google-auth-httplib2 \
+            google-api-python-client \
+            gspread \
+            python-dotenv
+
+      - name: Escrever credenciais
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ runner.temp }}/gcp-key.json
+          echo '${{ secrets.SHEETS_TOKEN_JSON }}' > ${{ runner.temp }}/sheets_token.json
+
+      - name: "Bonus BQ · adicionar_bonus_pdf.py"
+        if: github.event.inputs.etapa == 'all' || github.event.inputs.etapa == 'bonus-bq'
+        env:
+          PROJECT_ID: shopper-datalakehouse-qa
+          CREDENTIALS: ${{ runner.temp }}/gcp-key.json
+        run: |
+          echo "▶ Aplicando bônus recompensa — ${{ github.event.inputs.data_inicio }}"
+          python scripts/adicionar_bonus_pdf.py --inicio ${{ github.event.inputs.data_inicio }}
+
+      - name: "Bonus Planilha · subir_bonus_planilha.py"
+        if: github.event.inputs.etapa == 'all' || github.event.inputs.etapa == 'bonus-plan'
+        env:
+          PROJECT_ID: shopper-datalakehouse-qa
+          CREDENTIALS: ${{ runner.temp }}/gcp-key.json
+          SHEETS_TOKEN_PATH: ${{ runner.temp }}/sheets_token.json
+        run: |
+          echo "▶ Criando planilha de bônus no Drive — ${{ github.event.inputs.data_inicio }}"
+          python scripts/subir_bonus_planilha.py --inicio ${{ github.event.inputs.data_inicio }}
+
+      - name: "Carteira Planilha · preencher_planilha_performance.py"
+        if: github.event.inputs.etapa == 'all' || github.event.inputs.etapa == 'planilha'
+        env:
+          PROJECT_ID: shopper-datalakehouse-qa
+          CREDENTIALS: ${{ runner.temp }}/gcp-key.json
+          SHEETS_TOKEN_PATH: ${{ runner.temp }}/sheets_token.json
+        run: |
+          echo "▶ Preenchendo planilha de pagamento — ${{ github.event.inputs.data_inicio }}"
+          python scripts/preencher_planilha_performance.py --inicio ${{ github.event.inputs.data_inicio }}
+
+      - name: "Verificacao final — carteira_operação"
+        if: always() && (github.event.inputs.etapa == 'all' || github.event.inputs.etapa == 'bonus-bq')
+        run: |
+          bq query \
+            --use_legacy_sql=false \
+            --project_id=shopper-datalakehouse-qa \
+            --location=southamerica-east1 \
+            --format=pretty \
+            "SELECT
+               COUNT(*) AS total,
+               SUM(CAST(valor_a_pagar AS FLOAT64)) AS total_a_pagar,
+               SUM(CASE WHEN CAST(saldo_pos_bonificacao AS FLOAT64) > 0 THEN 1 ELSE 0 END) AS erros
+             FROM \`shopper-datalakehouse-qa.Ranking_Performance.carteira_operação\`
+             WHERE data_inicio_ranking = '${{ github.event.inputs.data_inicio }}'"

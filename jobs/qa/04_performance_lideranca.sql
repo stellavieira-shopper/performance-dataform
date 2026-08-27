@@ -390,7 +390,7 @@ BEGIN
     IF(is_avalia_turno, tr_bonificados, eq_total_bonificados) AS f_bonif_f,
     COALESCE(
       SAFE_DIVIDE(
-        (IF(is_avalia_turno, tr_soma, eq_soma) * 2) + COALESCE(individual_pts, 0),
+        (IF(is_avalia_turno, tr_soma, eq_soma) * 1.5) + COALESCE(individual_pts, 0),
         GREATEST(1, IF(is_avalia_turno, tr_total, eq_total))
       ),
       0
