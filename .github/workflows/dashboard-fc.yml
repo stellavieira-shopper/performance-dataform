@@ -27,7 +27,7 @@ jobs:
 
       - name: Gerar mensagens FC
         env:
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SA_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           DATA_ARG=""
