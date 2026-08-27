@@ -1,0 +1,23 @@
+config {
+  type: "view",
+  schema: "Ranking_Performance",
+  name: "vw_pre_expedicao_curated",
+  description: "Pré-expedição curada — pedidos mapeados por colaborador com reference_date corrigida.",
+}
+
+SELECT
+  pe.matricula                                                               AS registration_number,
+  pe.nome                                                                    AS user_name,
+  CAST(pe.data_hora AS DATETIME)                                             AS activity_start,
+  CAST(pe.data_hora AS DATETIME)                                             AS activity_end,
+  1.0                                                                        AS qty,
+  'PEDIDOS MAPEADOS'                                                         AS metric_description,
+  'PROMOTORA'                                                                AS metric_type,
+  DATE(CASE
+    WHEN EXTRACT(HOUR FROM pe.data_hora) < 6
+      THEN TIMESTAMP_SUB(pe.data_hora, INTERVAL 1 DAY)
+    ELSE pe.data_hora
+  END, 'America/Sao_Paulo')                                                  AS reference_date
+FROM `shopper-datalakehouse-qa.Ranking_Performance.pre_expedicao_raw` AS pe
+WHERE pe.matricula IS NOT NULL
+  AND pe.data_hora IS NOT NULL

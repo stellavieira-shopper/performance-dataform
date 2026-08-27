@@ -1,6 +1,6 @@
 -- Depende de: curated_caixaria, curated_movement_media
 CREATE OR REPLACE VIEW `shopper-performance-prod.operacao.curated_reposicao_fora_processo`
-OPTIONS (description = 'Reposições fora do processo (detratora).')
+OPTIONS (description = 'Movimentações feitas pela aba de Saídas no Kdabra Stock por operadores de reposição, fora do processo correto (listas de reposição ou PK). Métrica detratora — MOVEMENT_RESTOCK_INVALID.')
 AS
 WITH BaseCalculo AS (
   SELECT

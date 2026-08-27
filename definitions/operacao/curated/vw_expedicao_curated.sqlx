@@ -1,0 +1,49 @@
+config {
+  type: "view",
+  schema: "Ranking_Performance",
+  name: "vw_expedicao_curated",
+  description: "Expedição curada — volumes por romaneio/data, com identificação SMD.",
+}
+
+WITH
+Volumes AS (
+  SELECT
+    CONCAT(CAST(p.truck AS STRING), p.wave) AS romaneio_base,
+    p.delivery_date,
+    SUM(vol.item_qty) AS total_caixas
+  FROM `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_volumes_n2` AS vol
+  INNER JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_n2` AS p
+    ON p.kdabra_order_id = vol.kdabra_order_id
+  WHERE p.delivery_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 40 DAY)
+    AND p.fulfillment_center_id IN (2, 3, 7)
+    AND p.truck IS NOT NULL
+  GROUP BY romaneio_base, p.delivery_date
+),
+Usuarios AS (
+  SELECT SAFE_CAST(registration_number AS INT64) AS matricula, user_name
+  FROM `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2`
+)
+SELECT
+  SAFE_CAST(e.matricula AS INT64)                                           AS registration_number,
+  u.user_name,
+  CAST(e.bipagem_1 AS DATETIME)                                             AS activity_start,
+  CAST(e.bipagem_2 AS DATETIME)                                             AS activity_end,
+  CAST(COALESCE(v.total_caixas, 0) AS FLOAT64)                              AS qty,
+  CASE
+    WHEN UPPER(TRIM(e.romaneio)) LIKE '%S' THEN 'VOLUMES SMD EXPEDIDOS'
+    ELSE 'VOLUMES EXPEDIDOS'
+  END                                                                       AS metric_description,
+  'PROMOTORA'                                                               AS metric_type,
+  DATE(CASE
+    WHEN EXTRACT(HOUR FROM e.bipagem_1) < 6
+      THEN TIMESTAMP_SUB(e.bipagem_1, INTERVAL 1 DAY)
+    ELSE e.bipagem_1
+  END, 'America/Sao_Paulo')                                                 AS reference_date
+FROM `shopper-datalakehouse-qa.Ranking_Performance.expedicao_raw` AS e
+LEFT JOIN Volumes AS v
+  ON v.romaneio_base = UPPER(TRIM(e.romaneio))
+  AND v.delivery_date = e.data
+LEFT JOIN Usuarios AS u
+  ON u.matricula = SAFE_CAST(e.matricula AS INT64)
+WHERE e.matricula IS NOT NULL
+  AND e.bipagem_1 IS NOT NULL

@@ -1,15 +1,15 @@
-CREATE OR REPLACE EXTERNAL TABLE `shopper-performance-prod.operacao.curated_pre_expedicao`
+CREATE OR REPLACE EXTERNAL TABLE `shopper-performance-prod.Ranking_Performance.pre_expedicao_raw`
 (
-  Data                 DATE,
-  NOME                 STRING,
-  Matricula            INT64,
-  Qtd_pedidos_mapeados INT64,
-  metric_type          STRING
+  matricula  INT64,
+  nome       STRING,
+  cage       STRING,
+  data_hora  TIMESTAMP,
+  data       DATE
 )
 OPTIONS (
-  description  = 'Pré-expedição — pedidos mapeados por colaborador. External table do Google Sheets.',
+  description  = 'Pré-expedição raw — Pedidos Mapeados da planilha Google Sheets.',
   format       = 'GOOGLE_SHEETS',
-  uris         = ['https://docs.google.com/spreadsheets/d/1dOW-CtDWStVwqGxIPb2dgJ4UX2pfkcE_5mti8gfw-vI/edit?gid=1471731246#gid=1471731246'],
-  sheet_range  = 'Pré-Expedição!A2:E',
-  skip_leading_rows = 0
+  uris         = ['https://docs.google.com/spreadsheets/d/1YqPaDGKeZelm9w0RKZPo1JVVwy9cEyc031kgIxbe6OQ/edit'],
+  sheet_range  = 'Pedidos Mapeados!A3:E',
+  skip_leading_rows = 1
 );

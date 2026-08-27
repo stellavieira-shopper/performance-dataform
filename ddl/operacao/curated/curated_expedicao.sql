@@ -1,15 +1,15 @@
-CREATE OR REPLACE EXTERNAL TABLE `shopper-performance-prod.operacao.curated_expedicao`
+CREATE OR REPLACE EXTERNAL TABLE `shopper-performance-prod.Ranking_Performance.expedicao_raw`
 (
-  MATRICULA INT64,
-  DATA      DATE,
-  ROMANEIO  STRING,
-  VOLUMES   STRING,
-  E_SMD     BOOL
+  matricula  INT64,
+  romaneio   STRING,
+  bipagem_1  TIMESTAMP,
+  bipagem_2  TIMESTAMP,
+  data       DATE
 )
 OPTIONS (
-  description  = 'Expedição tratada com volumes por romaneio e flag SMD. External table do Google Sheets.',
+  description  = 'Expedição raw — Atividades por Romaneio da planilha Google Sheets.',
   format       = 'GOOGLE_SHEETS',
-  uris         = ['https://docs.google.com/spreadsheets/d/1dOW-CtDWStVwqGxIPb2dgJ4UX2pfkcE_5mti8gfw-vI/edit?gid=1207787385#gid=1207787385'],
-  sheet_range  = 'Expedição 2.0!A2:E',
-  skip_leading_rows = 0
+  uris         = ['https://docs.google.com/spreadsheets/d/1cJ73I0ySUaY_udx7bNpMGiN-xhxPuAOmwJDAOQVtGIc/edit'],
+  sheet_range  = 'Atividades por Romaneio!A2:E',
+  skip_leading_rows = 1
 );

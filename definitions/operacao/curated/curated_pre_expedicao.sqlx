@@ -1,24 +1,23 @@
-﻿config {
+config {
   type: "table",
-  schema: "operacao",
-  name: "curated_pre_expedicao",
-  description: "PrÃ©-expediÃ§Ã£o â€” pedidos mapeados por colaborador. External table do Google Sheets.",
+  schema: "Ranking_Performance",
+  name: "pre_expedicao_raw",
+  description: "Pré-expedição raw — Pedidos Mapeados da planilha Google Sheets.",
   bigquery: {
     externalDataConfiguration: {
       sourceFormat: "GOOGLE_SHEETS",
-      sourceUris: ["https://docs.google.com/spreadsheets/d/1dOW-CtDWStVwqGxIPb2dgJ4UX2pfkcE_5mti8gfw-vI/edit?gid=1471731246#gid=1471731246"],
-      googleSheetsOptions: { range: "PrÃ©-ExpediÃ§Ã£o!A2:E", skipLeadingRows: 0 },
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1YqPaDGKeZelm9w0RKZPo1JVVwy9cEyc031kgIxbe6OQ/edit"],
+      googleSheetsOptions: { range: "Pedidos Mapeados!A3:E", skipLeadingRows: 1 },
       ignoreUnknownValues: true,
       schema: { fields: [
-        { name: "Data",                 type: "DATE" },
-        { name: "NOME",                 type: "STRING" },
-        { name: "Matricula",            type: "INT64" },
-        { name: "Qtd_pedidos_mapeados", type: "INT64" },
-        { name: "metric_type",          type: "STRING" }
+        { name: "matricula",  type: "INT64" },
+        { name: "nome",       type: "STRING" },
+        { name: "cage",       type: "STRING" },
+        { name: "data_hora",  type: "TIMESTAMP" },
+        { name: "data",       type: "DATE" }
       ]}
     }
   }
 }
 
 SELECT * FROM ${self()}
-

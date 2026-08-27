@@ -1,24 +1,23 @@
-﻿config {
+config {
   type: "table",
-  schema: "operacao",
-  name: "curated_expedicao",
-  description: "ExpediÃ§Ã£o tratada com volumes por romaneio e flag SMD. External table do Google Sheets.",
+  schema: "Ranking_Performance",
+  name: "expedicao_raw",
+  description: "Expedição raw — Atividades por Romaneio da planilha Google Sheets.",
   bigquery: {
     externalDataConfiguration: {
       sourceFormat: "GOOGLE_SHEETS",
-      sourceUris: ["https://docs.google.com/spreadsheets/d/1dOW-CtDWStVwqGxIPb2dgJ4UX2pfkcE_5mti8gfw-vI/edit?gid=1207787385#gid=1207787385"],
-      googleSheetsOptions: { range: "ExpediÃ§Ã£o 2.0!A2:E", skipLeadingRows: 0 },
+      sourceUris: ["https://docs.google.com/spreadsheets/d/1cJ73I0ySUaY_udx7bNpMGiN-xhxPuAOmwJDAOQVtGIc/edit"],
+      googleSheetsOptions: { range: "Atividades por Romaneio!A2:E", skipLeadingRows: 1 },
       ignoreUnknownValues: true,
       schema: { fields: [
-        { name: "MATRICULA",  type: "INT64" },
-        { name: "DATA",       type: "DATE" },
-        { name: "ROMANEIO",   type: "STRING" },
-        { name: "VOLUMES",    type: "STRING" },
-        { name: "E_SMD",      type: "BOOL" }
+        { name: "matricula",  type: "INT64" },
+        { name: "romaneio",   type: "STRING" },
+        { name: "bipagem_1",  type: "TIMESTAMP" },
+        { name: "bipagem_2",  type: "TIMESTAMP" },
+        { name: "data",       type: "DATE" }
       ]}
     }
   }
 }
 
 SELECT * FROM ${self()}
-
