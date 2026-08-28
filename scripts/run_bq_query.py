@@ -5,10 +5,10 @@ Uso:
   python scripts/run_bq_query.py jobs/qa/00_kpis_operacao.sql
   python scripts/run_bq_query.py jobs/qa/07_feedback_operacional.sql --project shopper-datalakehouse-qa
 
-Variáveis de ambiente necessárias:
-  BQ_OAUTH_CLIENT_ID
-  BQ_OAUTH_CLIENT_SECRET
-  BQ_OAUTH_REFRESH_TOKEN
+Variáveis de ambiente necessárias (credenciais com escopo bigquery + drive):
+  BQ_DRIVE_CLIENT_ID
+  BQ_DRIVE_CLIENT_SECRET
+  BQ_DRIVE_REFRESH_TOKEN
 """
 import argparse
 import os
@@ -26,9 +26,10 @@ def main():
     parser.add_argument("--location", default="southamerica-east1")
     args = parser.parse_args()
 
-    client_id = os.environ["BQ_OAUTH_CLIENT_ID"]
-    client_secret = os.environ["BQ_OAUTH_CLIENT_SECRET"]
-    refresh_token = os.environ["BQ_OAUTH_REFRESH_TOKEN"]
+    # BQ_DRIVE_* tem escopo bigquery + drive (necessário para tabelas externas)
+    client_id = os.environ["BQ_DRIVE_CLIENT_ID"]
+    client_secret = os.environ["BQ_DRIVE_CLIENT_SECRET"]
+    refresh_token = os.environ["BQ_DRIVE_REFRESH_TOKEN"]
 
     creds = Credentials(
         token=None,
