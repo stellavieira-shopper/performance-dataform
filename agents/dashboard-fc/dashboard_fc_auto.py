@@ -19,7 +19,7 @@ import re
 import sys
 from datetime import datetime
 
-import anthropic
+import google.generativeai as genai
 import gspread
 import openpyxl
 import requests
@@ -198,12 +198,8 @@ Gere uma mensagem de performance seguindo EXATAMENTE estas regras:
 
 Retorne APENAS o texto da mensagem, sem aspas ou explicações."""
 
-    msg = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=500,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return msg.content[0].text.strip()
+    resp = client.generate_content(prompt)
+    return resp.text.strip()
 
 
 def gerar_mensagem_ge(client, item: dict) -> str:
@@ -226,12 +222,8 @@ Gere uma mensagem reformulada seguindo EXATAMENTE estas regras:
 
 Retorne APENAS o texto da mensagem."""
 
-    msg = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=300,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return msg.content[0].text.strip()
+    resp = client.generate_content(prompt)
+    return resp.text.strip()
 
 
 # ── Escrita na planilha ───────────────────────────────────────────────────────
@@ -450,7 +442,8 @@ def main():
     print(f"Iniciando geração de mensagens FC — {data}")
 
     creds = get_credentials()
-    anthropic_client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    gemini_client = genai.GenerativeModel("gemini-2.5-pro")
 
     print("Baixando planilha Dashboard FC...")
     wb_fc = download_xlsx(SPREADSHEET_ID_FC, creds)
@@ -470,7 +463,7 @@ def main():
             if not setor:
                 continue
             print(f"Gerando mensagem: {fc} / {setor}")
-            mensagem = gerar_mensagem_setor(anthropic_client, fc, config, resumo)
+            mensagem = gerar_mensagem_setor(gemini_client, fc, config, resumo)
             mensagens_finais.append({
                 "fc": fc,
                 "setor": setor,
@@ -487,7 +480,7 @@ def main():
     print(f"GE: {len(ge_rows)} linhas com JUSTIFICATIVA preenchida")
     for item in ge_rows:
         print(f"Gerando mensagem GE: {item['fc']} / matrícula {item['matricula']}")
-        mensagem = gerar_mensagem_ge(anthropic_client, item)
+        mensagem = gerar_mensagem_ge(gemini_client, item)
         mensagens_finais.append({
             "fc": item["fc"],
             "setor": "GESTÃO DE ESTOQUE",

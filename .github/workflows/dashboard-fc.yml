@@ -30,7 +30,7 @@ jobs:
 
       - name: Gerar mensagens FC
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SHEETS_TOKEN_PATH: ${{ runner.temp }}/sheets_token.json
         run: |
           DATA_ARG=""
