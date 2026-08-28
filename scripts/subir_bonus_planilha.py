@@ -71,10 +71,18 @@ def get_bq_client():
 
 
 def buscar_pasta_semana(drive, data_inicio: date, data_fim: date) -> str:
-    """Localiza a pasta 'Performance DD/MM a DD/MM' no Drive."""
+    """Localiza a pasta da semana no Drive.
+
+    Tenta vários padrões de nome:
+      - 'Performance DD/MM a DD/MM'  (formato antigo)
+      - 'Semana NN'                  (formato com número ISO)
+      - dia do início e dia do fim presentes no nome (ex: 'Semana 32 - 07-13/ago')
+    """
+    semana_iso = data_inicio.isocalendar()[1]
     ini_fmt = f"{data_inicio.day:02d}/{data_inicio.month:02d}"
     fim_fmt = f"{data_fim.day:02d}/{data_fim.month:02d}"
-    nome_esperado = f"Performance {ini_fmt} a {fim_fmt}"
+    ini_dia = f"{data_inicio.day:02d}"
+    fim_dia = f"{data_fim.day:02d}"
 
     res = drive.files().list(
         q=(
@@ -85,14 +93,31 @@ def buscar_pasta_semana(drive, data_inicio: date, data_fim: date) -> str:
         fields="files(id,name)"
     ).execute()
 
-    for f in res.get("files", []):
+    candidatos = res.get("files", [])
+
+    # 1) formato exato DD/MM
+    for f in candidatos:
         if ini_fmt in f["name"] and fim_fmt in f["name"]:
-            logging.info(f"Pasta encontrada: {f['name']} ({f['id']})")
+            logging.info(f"Pasta encontrada (DD/MM): {f['name']} ({f['id']})")
+            return f["id"]
+
+    # 2) número da semana ISO
+    for f in candidatos:
+        nome = f["name"]
+        if f"Semana {semana_iso}" in nome or f"Semana {semana_iso:02d}" in nome:
+            logging.info(f"Pasta encontrada (semana ISO {semana_iso}): {nome} ({f['id']})")
+            return f["id"]
+
+    # 3) dia de início e dia de fim presentes no nome (ex: '07-13/ago')
+    for f in candidatos:
+        nome = f["name"]
+        if ini_dia in nome and fim_dia in nome:
+            logging.info(f"Pasta encontrada (dias {ini_dia}/{fim_dia}): {nome} ({f['id']})")
             return f["id"]
 
     logging.error(
-        f"Pasta '{nome_esperado}' não encontrada. Pastas disponíveis: "
-        f"{[f['name'] for f in res.get('files', [])]}"
+        f"Pasta da semana {semana_iso} ({data_inicio} a {data_fim}) não encontrada. "
+        f"Pastas disponíveis: {[f['name'] for f in candidatos]}"
     )
     sys.exit(1)
 
