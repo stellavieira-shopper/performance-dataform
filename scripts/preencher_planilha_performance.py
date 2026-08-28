@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 from google.cloud import bigquery
-from google.oauth2 import service_account
+from google.auth import load_credentials_from_file
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
@@ -56,10 +56,11 @@ def main():
     logging.info(f"Período: {data_inicio} | Semana ISO: {semana_num}")
 
     # 1. Lê do BQ
-    creds_sa = service_account.Credentials.from_service_account_file(
-        CREDENTIALS, scopes=["https://www.googleapis.com/auth/bigquery"]
+    key_file = CREDENTIALS or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    creds_bq, _ = load_credentials_from_file(
+        key_file, scopes=["https://www.googleapis.com/auth/bigquery"]
     )
-    client = bigquery.Client(project=PROJECT_ID, credentials=creds_sa)
+    client = bigquery.Client(project=PROJECT_ID, credentials=creds_bq)
 
     rows = list(client.query(f"""
         SELECT cpf, CAST(valor_a_pagar AS FLOAT64) AS valor

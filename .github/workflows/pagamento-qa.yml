@@ -1,9 +1,10 @@
 name: Pagamento de Performance — QA
 
 # Secrets necessários:
-#   GCP_SA_KEY        → service account JSON (BigQuery) — já existe
-#   SHEETS_TOKEN_JSON → conteúdo do sheets_token.json local
-#                       (gere com: cat assiduidade-agent/sheets_token.json)
+#   BQ_OAUTH_CLIENT_ID      → valor de BQ_OAUTH_CLIENT_ID do .env
+#   BQ_OAUTH_CLIENT_SECRET  → valor de BQ_OAUTH_CLIENT_SECRET do .env
+#   BQ_OAUTH_REFRESH_TOKEN  → valor de BQ_OAUTH_REFRESH_TOKEN do .env
+#   SHEETS_TOKEN_JSON       → conteúdo do sheets_token.json local
 
 on:
   workflow_dispatch:
@@ -29,11 +30,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: google-github-actions/auth@v2
+      - name: Instalar gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          skip_install: false
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - name: Escrever credenciais OAuth
+        run: |
+          printf '{"type":"authorized_user","client_id":"%s","client_secret":"%s","refresh_token":"%s"}' \
+            '${{ secrets.BQ_OAUTH_CLIENT_ID }}' \
+            '${{ secrets.BQ_OAUTH_CLIENT_SECRET }}' \
+            '${{ secrets.BQ_OAUTH_REFRESH_TOKEN }}' \
+            > ${{ runner.temp }}/bq_oauth.json
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -51,16 +59,15 @@ jobs:
             gspread \
             python-dotenv
 
-      - name: Escrever credenciais
+      - name: Escrever tokens de planilha
         run: |
-          echo '${{ secrets.GCP_SA_KEY }}' > ${{ runner.temp }}/gcp-key.json
           echo '${{ secrets.SHEETS_TOKEN_JSON }}' > ${{ runner.temp }}/sheets_token.json
 
       - name: "Bonus BQ · adicionar_bonus_pdf.py"
         if: github.event.inputs.etapa == 'all' || github.event.inputs.etapa == 'bonus-bq'
         env:
           PROJECT_ID: shopper-datalakehouse-qa
-          CREDENTIALS: ${{ runner.temp }}/gcp-key.json
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Aplicando bônus recompensa — ${{ github.event.inputs.data_inicio }}"
           python scripts/adicionar_bonus_pdf.py --inicio ${{ github.event.inputs.data_inicio }}
@@ -69,7 +76,7 @@ jobs:
         if: github.event.inputs.etapa == 'all' || github.event.inputs.etapa == 'bonus-plan'
         env:
           PROJECT_ID: shopper-datalakehouse-qa
-          CREDENTIALS: ${{ runner.temp }}/gcp-key.json
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
           SHEETS_TOKEN_PATH: ${{ runner.temp }}/sheets_token.json
         run: |
           echo "▶ Criando planilha de bônus no Drive — ${{ github.event.inputs.data_inicio }}"
@@ -79,7 +86,7 @@ jobs:
         if: github.event.inputs.etapa == 'all' || github.event.inputs.etapa == 'planilha'
         env:
           PROJECT_ID: shopper-datalakehouse-qa
-          CREDENTIALS: ${{ runner.temp }}/gcp-key.json
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
           SHEETS_TOKEN_PATH: ${{ runner.temp }}/sheets_token.json
         run: |
           echo "▶ Preenchendo planilha de pagamento — ${{ github.event.inputs.data_inicio }}"
@@ -87,6 +94,8 @@ jobs:
 
       - name: "Verificacao final — carteira_operação"
         if: always() && (github.event.inputs.etapa == 'all' || github.event.inputs.etapa == 'bonus-bq')
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           bq query \
             --use_legacy_sql=false \

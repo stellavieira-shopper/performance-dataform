@@ -51,7 +51,7 @@ else:
     DATA_INICIO, DATA_FIM = _DATA_INICIO_PADRAO, _DATA_FIM_PADRAO
 
 from google.cloud import bigquery
-from google.oauth2 import service_account
+from google.auth import load_credentials_from_file
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -87,10 +87,9 @@ def sem_acento(texto):
 
 
 def make_client():
-    # CREDENTIALS (.env local) ou GOOGLE_APPLICATION_CREDENTIALS (Actions ADC)
     key_file = CREDENTIALS or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if key_file:
-        creds = service_account.Credentials.from_service_account_file(
+        creds, _ = load_credentials_from_file(
             key_file, scopes=["https://www.googleapis.com/auth/bigquery"]
         )
         return bigquery.Client(project=PROJECT_ID, credentials=creds)

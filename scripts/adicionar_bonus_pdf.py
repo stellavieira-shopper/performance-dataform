@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 from google.cloud import bigquery
-from google.oauth2 import service_account
+from google.auth import load_credentials_from_file
 
 PROJECT_ID  = os.getenv("PROJECT_ID", "shopper-datalakehouse-qa")
 CREDENTIALS = os.getenv("CREDENTIALS")
@@ -45,8 +45,9 @@ def main():
     data_inicio = date.fromisoformat(args.inicio) if args.inicio else periodo_atual()
     print(f"Período: {data_inicio}")
 
-    creds  = service_account.Credentials.from_service_account_file(
-        CREDENTIALS, scopes=["https://www.googleapis.com/auth/bigquery"]
+    key_file = CREDENTIALS or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    creds, _ = load_credentials_from_file(
+        key_file, scopes=["https://www.googleapis.com/auth/bigquery"]
     )
     client = bigquery.Client(project=PROJECT_ID, credentials=creds)
 

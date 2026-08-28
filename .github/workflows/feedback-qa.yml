@@ -1,5 +1,10 @@
 name: Feedbacks de Performance — QA
 
+# Secrets necessários (copiar do .env):
+#   BQ_OAUTH_CLIENT_ID      → valor de BQ_OAUTH_CLIENT_ID
+#   BQ_OAUTH_CLIENT_SECRET  → valor de BQ_OAUTH_CLIENT_SECRET
+#   BQ_OAUTH_REFRESH_TOKEN  → valor de BQ_OAUTH_REFRESH_TOKEN
+
 on:
   workflow_dispatch:
     inputs:
@@ -34,14 +39,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: google-github-actions/auth@v2
+      - name: Instalar gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          skip_install: false
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - name: Escrever credenciais OAuth
+        run: |
+          printf '{"type":"authorized_user","client_id":"%s","client_secret":"%s","refresh_token":"%s"}' \
+            '${{ secrets.BQ_OAUTH_CLIENT_ID }}' \
+            '${{ secrets.BQ_OAUTH_CLIENT_SECRET }}' \
+            '${{ secrets.BQ_OAUTH_REFRESH_TOKEN }}' \
+            > ${{ runner.temp }}/bq_oauth.json
 
       - name: "07 · Feedback Operacional (base — roda primeiro)"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '07'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 07_feedback_operacional.sql"
           bq query \
@@ -52,6 +66,8 @@ jobs:
 
       - name: "08 · Feedback Fiscais"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '08'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 08_feedback_fiscais.sql"
           bq query \
@@ -62,6 +78,8 @@ jobs:
 
       - name: "09 · Feedback Supervisores"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '09'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 09_feedback_supervisores.sql"
           bq query \
@@ -72,6 +90,8 @@ jobs:
 
       - name: "10 · Comparativo Atividades"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '10'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 10_feedback_comparativo_atividades.sql"
           bq query \
@@ -82,6 +102,8 @@ jobs:
 
       - name: "11 · Ocorrências da Semana"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '11'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 11_feedback_ocorrencias.sql"
           bq query \
@@ -92,6 +114,8 @@ jobs:
 
       - name: "12 · Feedback Não Mensuráveis"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '12'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 12_feedback_nao_mediveis.sql"
           bq query \
@@ -102,6 +126,8 @@ jobs:
 
       - name: "13 · Comparativo Equipe-Fiscal"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '13'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 13_feedback_comparativo_equipe_fiscal.sql"
           bq query \
@@ -118,23 +144,21 @@ jobs:
 
       - name: "Relatorio · Instalar dependencias"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == 'relatorio'
-        run: pip install google-cloud-bigquery reportlab python-dotenv
+        run: pip install google-cloud-bigquery google-auth reportlab python-dotenv
 
       - name: "Relatorio · Gerar PDF de bonus"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == 'relatorio'
         env:
           PROJECT_ID: shopper-datalakehouse-qa
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-key.json
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
           RELATORIO_DATA_INICIO: ${{ github.event.inputs.data_inicio }}
           RELATORIO_DATA_FIM: ${{ github.event.inputs.data_fim }}
-        run: |
-          echo '${{ secrets.GCP_SA_KEY }}' > ${{ runner.temp }}/gcp-key.json
-          python scripts/relatorio_bonus_ranking.py
+        run: python scripts/relatorio_bonus_ranking.py
 
       - name: "Relatorio · Upload artefatos"
         if: always() && (github.event.inputs.job == 'all' || github.event.inputs.job == 'relatorio')
         uses: actions/upload-artifact@v4
         with:
           name: bonus-ranking-${{ github.run_id }}
-          path: Bonus_Ranking_*.pdf
+          path: scripts/Bonus_Ranking_*.pdf
           retention-days: 30

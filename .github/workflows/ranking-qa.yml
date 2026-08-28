@@ -1,5 +1,10 @@
 name: Ranking QA — Pipeline Semanal
 
+# Secrets necessários (copiar do .env):
+#   BQ_OAUTH_CLIENT_ID      → valor de BQ_OAUTH_CLIENT_ID
+#   BQ_OAUTH_CLIENT_SECRET  → valor de BQ_OAUTH_CLIENT_SECRET
+#   BQ_OAUTH_REFRESH_TOKEN  → valor de BQ_OAUTH_REFRESH_TOKEN
+
 on:
   # schedule:
   #   - cron: '0 20 * * 5'  # sexta 17h BRT (UTC-3)
@@ -30,13 +35,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Autenticar no GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Setup gcloud
+      - name: Instalar gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
+        with:
+          skip_install: false
+
+      - name: Escrever credenciais OAuth
+        run: |
+          printf '{"type":"authorized_user","client_id":"%s","client_secret":"%s","refresh_token":"%s"}' \
+            '${{ secrets.BQ_OAUTH_CLIENT_ID }}' \
+            '${{ secrets.BQ_OAUTH_CLIENT_SECRET }}' \
+            '${{ secrets.BQ_OAUTH_REFRESH_TOKEN }}' \
+            > ${{ runner.temp }}/bq_oauth.json
 
       # ─────────────────────────────────────────────
       # 00 — KPIs Operação
@@ -46,6 +56,8 @@ jobs:
           github.event_name == 'schedule' ||
           github.event.inputs.job == 'all'  ||
           github.event.inputs.job == '00'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 00_kpis_operacao.sql"
           bq query \
@@ -62,6 +74,8 @@ jobs:
           github.event_name == 'schedule' ||
           github.event.inputs.job == 'all'  ||
           github.event.inputs.job == '01'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 01_performance_extract_points.sql"
           bq query \
@@ -78,6 +92,8 @@ jobs:
           github.event_name == 'schedule' ||
           github.event.inputs.job == 'all'  ||
           github.event.inputs.job == '02'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 02_expected_points_tratada.sql"
           bq query \
@@ -94,6 +110,8 @@ jobs:
           github.event_name == 'schedule' ||
           github.event.inputs.job == 'all'  ||
           github.event.inputs.job == '03'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 03_ranking_semanal.sql"
           bq query \
@@ -110,6 +128,8 @@ jobs:
           github.event_name == 'schedule' ||
           github.event.inputs.job == 'all'  ||
           github.event.inputs.job == '04'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 04_performance_lideranca.sql"
           bq query \
@@ -126,6 +146,8 @@ jobs:
           github.event_name == 'schedule' ||
           github.event.inputs.job == 'all'  ||
           github.event.inputs.job == '05'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 05_performance_nao_mediveis.sql"
           bq query \
@@ -142,6 +164,8 @@ jobs:
           github.event_name == 'schedule' ||
           github.event.inputs.job == 'all'  ||
           github.event.inputs.job == '06'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 06_tabela_consolidada_ranking.sql"
           bq query \
