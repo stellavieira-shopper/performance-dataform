@@ -1,100 +1,69 @@
 CREATE OR REPLACE TABLE `shopper-datalakehouse-qa.Ranking_Performance.Tabela_Ocorrencias_Semana` AS
+WITH
 
-WITH Periodo AS (
-  SELECT MAX(data_inicio_periodo) AS data_inicio
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.Ranking Semanal`
-),
-
-Faltas AS (
+RawPonto AS (
   SELECT
-    CAST(registration_number AS STRING) AS MATRICULA,
-    reference_date AS data_ocorrencia,
-    'FALTA' AS TIPO_OCORRENCIA,
-    NULL AS descricao
+    SAFE_CAST(registration_number AS STRING) AS MATRICULA,
+    reference_date AS DATA_EVENTO,
+    DATE_TRUNC(reference_date, WEEK(FRIDAY)) AS data_inicio_periodo,
+    DATE_ADD(DATE_TRUNC(reference_date, WEEK(FRIDAY)), INTERVAL 6 DAY) AS data_fim_periodo,
+    absence, medical_certificate, delay, hours_declaration, vacation
   FROM `shopper-datalakehouse-qa.Ranking_Performance.Expected Points Tratada`
-  WHERE reference_date >= (SELECT data_inicio FROM Periodo)
-    AND absence IS NOT NULL
-    AND (motivo_consolidado IS NULL
-         OR UPPER(motivo_consolidado) NOT LIKE '%FÉRIAS%'
-         AND UPPER(motivo_consolidado) NOT LIKE '%FERIAS%'
-         AND UPPER(motivo_consolidado) NOT LIKE '%ATESTADO%')
+  WHERE reference_date >= '2024-01-01'
 ),
 
-Atestados AS (
+RawMedidas AS (
   SELECT
-    CAST(registration_number AS STRING) AS MATRICULA,
-    reference_date AS data_ocorrencia,
-    'ATESTADO' AS TIPO_OCORRENCIA,
-    motivo_consolidado AS descricao
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.Expected Points Tratada`
-  WHERE reference_date >= (SELECT data_inicio FROM Periodo)
-    AND medical_certificate IS NOT NULL
-),
-
-Atrasos AS (
-  SELECT
-    CAST(registration_number AS STRING) AS MATRICULA,
-    reference_date AS data_ocorrencia,
-    'ATRASO' AS TIPO_OCORRENCIA,
-    NULL AS descricao
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.Expected Points Tratada`
-  WHERE reference_date >= (SELECT data_inicio FROM Periodo)
-    AND delay IS NOT NULL
-),
-
-DeclaracoesHoras AS (
-  SELECT
-    CAST(registration_number AS STRING) AS MATRICULA,
-    reference_date AS data_ocorrencia,
-    'DECLARAÇÃO DE HORAS' AS TIPO_OCORRENCIA,
-    NULL AS descricao
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.Expected Points Tratada`
-  WHERE reference_date >= (SELECT data_inicio FROM Periodo)
-    AND hours_declaration IS NOT NULL
-),
-
-Advertencias AS (
-  SELECT
-    CAST(Matricula AS STRING) AS MATRICULA,
-    Data_Ocorrencia AS data_ocorrencia,
-    'ADVERTÊNCIA' AS TIPO_OCORRENCIA,
-    Tipo_Advertencia AS descricao
+    SAFE_CAST(MATRICULA AS STRING) AS MATRICULA,
+    DATA_OCORRENCIA AS DATA_EVENTO,
+    DATE_TRUNC(DATA_OCORRENCIA, WEEK(FRIDAY)) AS data_inicio_periodo,
+    DATE_ADD(DATE_TRUNC(DATA_OCORRENCIA, WEEK(FRIDAY)), INTERVAL 6 DAY) AS data_fim_periodo,
+    MOTIVO AS descricao_medida
   FROM `shopper-datalakehouse-qa.Ranking_Performance.Medidas Disciplinares `
-  WHERE Data_Ocorrencia >= (SELECT data_inicio FROM Periodo)
-    AND UPPER(TRIM(Tipo_Advertencia)) LIKE '%ADVERTÊN%'
+  WHERE APLICADA IS TRUE AND INDEVIDA IS FALSE AND DATA_OCORRENCIA >= '2024-01-01'
 ),
 
-Ferias AS (
+OcorrenciasIndividuais AS (
+  SELECT MATRICULA, DATA_EVENTO, data_inicio_periodo, data_fim_periodo, 'FALTA' AS TIPO_OCORRENCIA, NULL AS INFO_EXTRA FROM RawPonto WHERE absence IS NOT NULL
+  UNION ALL
+  SELECT MATRICULA, DATA_EVENTO, data_inicio_periodo, data_fim_periodo, 'ATESTADO' AS TIPO_OCORRENCIA, NULL AS INFO_EXTRA FROM RawPonto WHERE medical_certificate IS NOT NULL
+  UNION ALL
+  SELECT MATRICULA, DATA_EVENTO, data_inicio_periodo, data_fim_periodo, 'ATRASO' AS TIPO_OCORRENCIA, CAST(delay AS STRING) AS INFO_EXTRA FROM RawPonto WHERE delay IS NOT NULL AND delay > '00:00:00'
+  UNION ALL
+  SELECT MATRICULA, DATA_EVENTO, data_inicio_periodo, data_fim_periodo, 'DECLARAÇÃO DE HORAS' AS TIPO_OCORRENCIA, CAST(hours_declaration AS STRING) AS INFO_EXTRA FROM RawPonto WHERE hours_declaration IS NOT NULL AND hours_declaration > '00:00:00'
+  UNION ALL
+  SELECT MATRICULA, DATA_EVENTO, data_inicio_periodo, data_fim_periodo, 'ADVERTÊNCIA' AS TIPO_OCORRENCIA, COALESCE(descricao_medida, 'Sem motivo') AS INFO_EXTRA FROM RawMedidas
+  UNION ALL
+  SELECT MATRICULA, DATA_EVENTO, data_inicio_periodo, data_fim_periodo, 'FÉRIAS' AS TIPO_OCORRENCIA, NULL AS INFO_EXTRA FROM RawPonto WHERE vacation IS NOT NULL
+),
+
+AgrupamentoFinal AS (
   SELECT
-    CAST(registration_number AS STRING) AS MATRICULA,
-    reference_date AS data_ocorrencia,
-    'FÉRIAS' AS TIPO_OCORRENCIA,
-    motivo_consolidado AS descricao
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.Expected Points Tratada`
-  WHERE reference_date >= (SELECT data_inicio FROM Periodo)
-    AND vacation IS NOT NULL
-),
-
-Todas AS (
-  SELECT * FROM Faltas
-  UNION ALL SELECT * FROM Atestados
-  UNION ALL SELECT * FROM Atrasos
-  UNION ALL SELECT * FROM DeclaracoesHoras
-  UNION ALL SELECT * FROM Advertencias
-  UNION ALL SELECT * FROM Ferias
+    MATRICULA,
+    data_inicio_periodo AS DATA_INICIO,
+    data_fim_periodo AS DATA_FINAL,
+    TIPO_OCORRENCIA,
+    COUNT(*) AS QTD_OCORRENCIAS,
+    STRING_AGG(
+      CASE
+        WHEN TIPO_OCORRENCIA IN ('ATRASO', 'DECLARAÇÃO DE HORAS', 'ADVERTÊNCIA') THEN CONCAT(FORMAT_DATE('%d/%m', DATA_EVENTO), ' (', INFO_EXTRA, ')')
+        ELSE FORMAT_DATE('%d/%m', DATA_EVENTO)
+      END,
+      ' | ' ORDER BY DATA_EVENTO ASC
+    ) AS LISTA_DETALHES
+  FROM OcorrenciasIndividuais
+  GROUP BY MATRICULA, data_inicio_periodo, data_fim_periodo, TIPO_OCORRENCIA
 )
 
 SELECT
-  t.MATRICULA,
-  o.CRACHA,
-  o.NOME,
-  o.SETOR,
-  o.TURNO,
-  o.FC,
-  t.data_ocorrencia,
-  t.TIPO_OCORRENCIA,
-  t.descricao,
-  (SELECT data_inicio FROM Periodo) AS data_inicio_periodo
-FROM Todas t
-LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.Organograma` o
-  ON TRIM(CAST(t.MATRICULA AS STRING)) = TRIM(CAST(o.MATRICULA AS STRING));
+  o.MATRICULA,
+  org.CRACHA,
+  o.DATA_INICIO,
+  o.DATA_FINAL,
+  o.TIPO_OCORRENCIA,
+  o.QTD_OCORRENCIAS,
+  o.LISTA_DETALHES
+FROM AgrupamentoFinal o
+LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.Organograma` org
+  ON SAFE_CAST(o.MATRICULA AS INT64) = SAFE_CAST(org.MATRICULA AS INT64)
+ORDER BY o.MATRICULA, o.DATA_INICIO DESC, o.TIPO_OCORRENCIA;

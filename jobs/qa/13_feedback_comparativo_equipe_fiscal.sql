@@ -7,78 +7,62 @@ BEGIN
   );
 
   INSERT INTO `shopper-datalakehouse-qa.Ranking_Performance.Tabela_Comparativo_Equipe_Fiscal`
-
-  WITH DetalhePeriodo AS (
+  WITH Base_Tratada AS (
     SELECT
       data_inicio_periodo,
-      CAST(MATRICULA AS STRING) AS MATRICULA,
-      CAST(MATRICULA_FISCAL AS STRING) AS MATRICULA_FISCAL,
-      TRIM(supervisor_responsavel) AS supervisor_responsavel_raw,
-      pontuacao_colaborador,
-      total_itens_colaborador,
-      setor,
-      FC,
-      turno
-    FROM `shopper-datalakehouse-qa.Ranking_Performance.Performance Detalhada`
-    WHERE data_inicio_periodo = (
-      SELECT MAX(data_inicio_periodo)
-      FROM `shopper-datalakehouse-qa.Ranking_Performance.Performance Detalhada`
-    )
+      data_fim_periodo,
+      matricula_colaborador,
+      nome_colaborador,
+      setor_colaborador,
+      turno_colaborador,
+      area_colaborador,
+      fc_colaborador,
+      fiscal_responsavel,
+      atribuicao_colaborador,
+      motivos_desqualificacao,
+      status_ranking_final,
+      pontuacao_final,
+      quantidade_itens_setor,
+      taxa_erros_setor,
+      valor_bonificacao_final,
+      TRIM(s) AS supervisor_indiv
+    FROM `shopper-datalakehouse-qa.Ranking_Performance.Performance Detalhada`,
+    UNNEST(SPLIT(supervisor_responsavel, '/')) AS s
   ),
 
-  Supervisores AS (
+  Calculo_Com_Lag AS (
     SELECT
-      MATRICULA,
-      MATRICULA_FISCAL,
-      supervisor_responsavel_raw,
-      pontuacao_colaborador,
-      total_itens_colaborador,
-      setor,
-      FC,
-      turno,
-      data_inicio_periodo,
-      TRIM(sup_mat) AS matricula_supervisor
-    FROM DetalhePeriodo,
-    UNNEST(SPLIT(supervisor_responsavel_raw, '/')) AS sup_mat
-    WHERE TRIM(sup_mat) <> ''
-  ),
-
-  Base AS (
-    SELECT
-      s.data_inicio_periodo,
-      s.matricula_supervisor,
-      s.MATRICULA_FISCAL,
-      s.MATRICULA,
-      s.pontuacao_colaborador,
-      s.total_itens_colaborador,
-      s.setor,
-      s.FC,
-      s.turno,
-      LAG(s.pontuacao_colaborador) OVER (
-        PARTITION BY s.MATRICULA, s.MATRICULA_FISCAL, s.matricula_supervisor
-        ORDER BY s.data_inicio_periodo
-      ) AS pontuacao_anterior,
-      LAG(s.total_itens_colaborador) OVER (
-        PARTITION BY s.MATRICULA, s.MATRICULA_FISCAL, s.matricula_supervisor
-        ORDER BY s.data_inicio_periodo
-      ) AS itens_anterior
-    FROM Supervisores s
+      *,
+      LAG(pontuacao_final) OVER (PARTITION BY matricula_colaborador, fiscal_responsavel ORDER BY data_inicio_periodo) AS pontuacao_anterior,
+      LAG(quantidade_itens_setor) OVER (PARTITION BY matricula_colaborador, fiscal_responsavel ORDER BY data_inicio_periodo) AS itens_anterior
+    FROM Base_Tratada
   )
 
   SELECT
-    b.data_inicio_periodo AS data_inicio,
-    b.matricula_supervisor,
-    b.MATRICULA_FISCAL,
-    b.MATRICULA,
-    b.pontuacao_colaborador,
-    b.total_itens_colaborador,
-    b.setor,
-    b.FC,
-    b.turno,
-    COALESCE(b.pontuacao_anterior, 0) AS pontuacao_anterior,
-    COALESCE(b.itens_anterior, 0) AS itens_anterior,
-    b.pontuacao_colaborador - COALESCE(b.pontuacao_anterior, 0) AS delta_pontuacao,
-    b.total_itens_colaborador - COALESCE(b.itens_anterior, 0) AS delta_itens
-  FROM Base b;
+    data_inicio_periodo AS data_inicio,
+    data_fim_periodo AS data_final,
+    matricula_colaborador AS MATRICULA,
+    nome_colaborador AS NOME,
+    setor_colaborador AS SETOR,
+    turno_colaborador AS TURNO,
+    area_colaborador AS AREA,
+    fc_colaborador AS FC,
+    fiscal_responsavel AS FISCAL,
+    atribuicao_colaborador AS ATRIBUICAO,
+    motivos_desqualificacao,
+    supervisor_indiv AS SUPERVISOR,
+    status_ranking_final AS status_ranking,
+    COALESCE(pontuacao_final, 0) AS pontuacao_atual,
+    COALESCE(quantidade_itens_setor, 0) AS itens_atual,
+    COALESCE(taxa_erros_setor, 0) AS taxa_erro_atual,
+    (COALESCE(pontuacao_final, 0) - COALESCE(pontuacao_anterior, pontuacao_final)) AS delta_pontuacao,
+    (COALESCE(quantidade_itens_setor, 0) - COALESCE(itens_anterior, quantidade_itens_setor)) AS delta_itens,
+    0 AS delta_taxa_erro,
+    valor_bonificacao_final AS valor_bonus
+  FROM Calculo_Com_Lag
+  WHERE data_inicio_periodo = (
+    SELECT MAX(data_inicio_periodo)
+    FROM `shopper-datalakehouse-qa.Ranking_Performance.Performance Detalhada`
+  );
 
 END;
