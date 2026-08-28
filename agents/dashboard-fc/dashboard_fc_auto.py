@@ -831,7 +831,13 @@ def main():
     parser.add_argument("--sql-path", required=False, help="Caminho para 00_kpis_operacao.sql a atualizar")
     args = parser.parse_args()
 
-    data = args.data or datetime.today().strftime("%d/%m/%Y")
+    if args.data:
+        data = args.data
+    else:
+        hoje = datetime.today().date()
+        # 3 = quinta-feira (weekday: seg=0 … dom=6)
+        dias_ate_quinta = (hoje.weekday() - 3) % 7
+        data = (hoje - timedelta(days=dias_ate_quinta)).strftime("%d/%m/%Y")
     data_fmt = data.replace("/", "")  # para nome de arquivo
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
