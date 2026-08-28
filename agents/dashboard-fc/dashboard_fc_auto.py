@@ -577,11 +577,20 @@ def _setor_to_sql_cond(setor: str, atribuicao: str, turno: str, fc: str) -> str:
 
 
 def _replace_sql_section(sql: str, section: str, content: str) -> str:
-    start_marker = f"-- [AUTO:{section}]"
-    end_marker = f"-- [/AUTO:{section}]"
-    pattern = rf"{re.escape(start_marker)}\n.*?{re.escape(end_marker)}"
-    replacement = f"{start_marker}\n{content}      {end_marker}"
-    return re.sub(pattern, replacement, sql, flags=re.DOTALL)
+    pattern = (
+        rf"([ \t]*)-- \[AUTO:{re.escape(section)}\]\n"
+        rf".*?"
+        rf"([ \t]*)-- \[/AUTO:{re.escape(section)}\]"
+    )
+    def replacer(m):
+        indent = m.group(1)
+        # Re-indent each content line with the block's own indent
+        indented = ""
+        for line in content.splitlines(keepends=True):
+            stripped = line.lstrip()
+            indented += (indent + stripped) if stripped else line
+        return f"{indent}-- [AUTO:{section}]\n{indented}{indent}-- [/AUTO:{section}]"
+    return re.sub(pattern, replacer, sql, flags=re.DOTALL)
 
 
 def _to_mat(val) -> str:
@@ -623,14 +632,14 @@ def atualizar_sql_kpis(
                     if f.get("matricula") and _is_zero(f.get("pct_desconto"))]
     zerado_mats = sorted(set(zerado_mats))
 
-    ind_zerados_mult = (f"      WHEN MATRICULA IN ({_sql_mats(zerado_mats)}) THEN 0.0\n"
+    ind_zerados_mult = (f"WHEN MATRICULA IN ({_sql_mats(zerado_mats)}) THEN 0.0\n"
                         if zerado_mats else "")
     sql = _replace_sql_section(sql, "ind-zerados-mult", ind_zerados_mult)
 
     # ── 2. ind-zerados-setor-neut (neutralizador em MULT_SETOR) ──────────────
     sql = _replace_sql_section(
         sql, "ind-zerados-setor-neut",
-        f"      WHEN MATRICULA IN ({_sql_mats(zerado_mats)}) THEN 1.0\n" if zerado_mats else "",
+        f"WHEN MATRICULA IN ({_sql_mats(zerado_mats)}) THEN 1.0\n" if zerado_mats else "",
     )
 
     # ── 3. fiscais-picking-mult (MULT_SETOR, por matrícula) ───────────────────
@@ -638,7 +647,7 @@ def atualizar_sql_kpis(
     for f in fiscais:
         mat = f["matricula"]
         mult = _desconto_to_mult(f.get("pct_desconto"))
-        picking_mult_lines.append(f"      WHEN MATRICULA IN ('{mat}') THEN {mult}")
+        picking_mult_lines.append(f"WHEN MATRICULA IN ('{mat}') THEN {mult}")
     sql = _replace_sql_section(
         sql, "fiscais-picking-mult",
         "\n".join(picking_mult_lines) + "\n" if picking_mult_lines else "",
@@ -658,7 +667,7 @@ def atualizar_sql_kpis(
             atrib = row.get("ATRIBUIÇÃO", "") or ""
             turno = row.get("TURNO", "") or ""
             cond = _setor_to_sql_cond(setor, atrib, turno, fc)
-            setor_mult_lines.append(f"      WHEN {cond} THEN {mult}")
+            setor_mult_lines.append(f"WHEN {cond} THEN {mult}")
     sql = _replace_sql_section(
         sql, "setoriais-mult",
         "\n".join(setor_mult_lines) + "\n" if setor_mult_lines else "",
@@ -672,7 +681,7 @@ def atualizar_sql_kpis(
         mat = _to_mat(d["MATRÍCULA"])
         motivo = str(d.get("OBS (MOTIVO)", "") or "").replace("'", "''")
         msg = f"VALOR DA BONIFICAÇÃO ZERADO. {motivo}" if motivo else "VALOR DA BONIFICAÇÃO ZERADO."
-        ind_obs_lines.append(f"      WHEN MATRICULA IN ('{mat}')\n        THEN '{msg}'")
+        ind_obs_lines.append(f"WHEN MATRICULA IN ('{mat}')\n  THEN '{msg}'")
     sql = _replace_sql_section(
         sql, "ind-zerados-obs",
         "\n".join(ind_obs_lines) + "\n" if ind_obs_lines else "",
@@ -683,14 +692,13 @@ def atualizar_sql_kpis(
     for f in fiscais:
         mat = f["matricula"]
         msg = (f.get("mensagem") or "").replace("'", "''")
-        fiscais_obs_lines.append(f"      WHEN MATRICULA IN ('{mat}')\n        THEN '{msg}'")
+        fiscais_obs_lines.append(f"WHEN MATRICULA IN ('{mat}')\n  THEN '{msg}'")
     sql = _replace_sql_section(
         sql, "fiscais-picking-obs",
         "\n".join(fiscais_obs_lines) + "\n" if fiscais_obs_lines else "",
     )
 
     # ── 7. ge-obs ─────────────────────────────────────────────────────────────
-    # Group GE rows with same message
     ge_obs_lines = []
     msg_to_mats: dict = {}
     for g in ge_rows:
@@ -700,7 +708,7 @@ def atualizar_sql_kpis(
             continue
         msg_to_mats.setdefault(msg_raw.replace("'", "''"), []).append(mat)
     for msg, mats in msg_to_mats.items():
-        ge_obs_lines.append(f"      WHEN MATRICULA IN ({_sql_mats(mats)})\n        THEN '{msg}'")
+        ge_obs_lines.append(f"WHEN MATRICULA IN ({_sql_mats(mats)})\n  THEN '{msg}'")
     sql = _replace_sql_section(
         sql, "ge-obs",
         "\n".join(ge_obs_lines) + "\n" if ge_obs_lines else "",
@@ -719,7 +727,6 @@ def atualizar_sql_kpis(
             atrib = row.get("ATRIBUIÇÃO", "") or ""
             turno = row.get("TURNO", "") or ""
             cond = _setor_to_sql_cond(setor, atrib, turno, fc)
-            # Find matching generated message
             msg = ""
             for m in mensagens:
                 if (m.get("fc") == fc and
@@ -730,7 +737,7 @@ def atualizar_sql_kpis(
                     break
             if msg:
                 setor_obs_lines.append(
-                    f"      WHEN {cond}\n        THEN '{msg.replace(chr(39), chr(39)+chr(39))}'"
+                    f"WHEN {cond}\n  THEN '{msg.replace(chr(39), chr(39)+chr(39))}'"
                 )
     sql = _replace_sql_section(
         sql, "setoriais-obs",
