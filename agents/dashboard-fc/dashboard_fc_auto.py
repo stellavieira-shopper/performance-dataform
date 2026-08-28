@@ -614,6 +614,7 @@ def atualizar_sql_kpis(
     sql_path: str,
     data: str,
     kpis_ind: list,
+    vistoria: list,
     fiscais: list,
     visao_por_fc: dict,
     mensagens: list,
@@ -625,35 +626,75 @@ def atualizar_sql_kpis(
     hoje_str = datetime.strptime(data, "%d/%m/%Y").strftime("%d/%m/%Y")
     sql = re.sub(r"-- Última atualização: [\d/]+", f"-- Última atualização: {hoje_str}", sql)
 
-    # ── 1. ind-zerados-mult (MULT_MATRICULA) ──────────────────────────────────
-    zerado_mats = list({_to_mat(d["MATRÍCULA"]) for d in kpis_ind
-                        if d.get("MATRÍCULA") and _is_zero(d.get("DESCONTO"))})
-    zerado_mats += [f["matricula"] for f in fiscais
-                    if f.get("matricula") and _is_zero(f.get("pct_desconto"))]
-    zerado_mats = sorted(set(zerado_mats))
-
+    # ── 1. ind-zerados-mult (MULT_MATRICULA — KPIs Individuais 0%) ────────────
+    zerado_mats = sorted({_to_mat(d["MATRÍCULA"]) for d in kpis_ind
+                          if d.get("MATRÍCULA") and _is_zero(d.get("DESCONTO"))})
     ind_zerados_mult = (f"WHEN MATRICULA IN ({_sql_mats(zerado_mats)}) THEN 0.0\n"
                         if zerado_mats else "")
     sql = _replace_sql_section(sql, "ind-zerados-mult", ind_zerados_mult)
 
-    # ── 2. ind-zerados-setor-neut (neutralizador em MULT_SETOR) ──────────────
+    # ── 2. ind-parcial-mult (MULT_MATRICULA — KPIs Individuais com desconto) ──
+    parcial_groups: dict = {}
+    for d in kpis_ind:
+        if not d.get("MATRÍCULA") or _is_zero(d.get("DESCONTO")):
+            continue
+        mat = _to_mat(d["MATRÍCULA"])
+        mult = _desconto_to_mult(d.get("DESCONTO"))
+        parcial_groups.setdefault(mult, []).append(mat)
+    ind_parcial_lines = [
+        f"WHEN MATRICULA IN ({_sql_mats(mats)}) THEN {mult}"
+        for mult, mats in parcial_groups.items()
+    ]
+    sql = _replace_sql_section(
+        sql, "ind-parcial-mult",
+        "\n".join(ind_parcial_lines) + "\n" if ind_parcial_lines else "",
+    )
+
+    # ── 3. ind-zerados-setor-neut (neutralizador em MULT_SETOR) ──────────────
     sql = _replace_sql_section(
         sql, "ind-zerados-setor-neut",
         f"WHEN MATRICULA IN ({_sql_mats(zerado_mats)}) THEN 1.0\n" if zerado_mats else "",
     )
 
-    # ── 3. fiscais-picking-mult (MULT_SETOR, por matrícula) ───────────────────
-    picking_mult_lines = []
+    # ── 4. fiscais-picking-mult (MULT_MATRICULA — Vistoria + Fiscais) ─────────
+    # Agrupa Vistoria por (mult, mensagem) para compactar matrículas iguais
+    picking_groups: dict = {}
+    for v in vistoria:
+        mat_raw = v.get("MATRÍCULA")
+        if mat_raw is None:
+            continue
+        try:
+            mat = str(int(float(mat_raw)))
+        except (ValueError, TypeError):
+            continue
+        pct_raw = v.get("% DESCONTO")
+        try:
+            mult = str(round(max(0.0, 1.0 + float(pct_raw)), 4)).rstrip("0").rstrip(".")
+            if "." not in mult:
+                mult += ".0"
+        except (ValueError, TypeError):
+            continue
+        msg = str(v.get("MENSAGEM", "") or "").replace("'", "''")
+        picking_groups.setdefault((mult, msg), []).append(mat)
+
     for f in fiscais:
-        mat = f["matricula"]
+        mat = f.get("matricula")
+        if not mat:
+            continue
         mult = _desconto_to_mult(f.get("pct_desconto"))
-        picking_mult_lines.append(f"WHEN MATRICULA IN ('{mat}') THEN {mult}")
+        msg = (f.get("mensagem") or "").replace("'", "''")
+        picking_groups.setdefault((mult, msg), []).append(str(mat))
+
+    picking_mult_lines = [
+        f"WHEN MATRICULA IN ({_sql_mats(mats)}) THEN {mult}"
+        for (mult, msg), mats in picking_groups.items()
+    ]
     sql = _replace_sql_section(
         sql, "fiscais-picking-mult",
         "\n".join(picking_mult_lines) + "\n" if picking_mult_lines else "",
     )
 
-    # ── 4. setoriais-mult (MULT_SETOR, por setor/FC) ──────────────────────────
+    # ── 5. setoriais-mult (MULT_SETOR, por setor/FC) ──────────────────────────
     setor_mult_lines = []
     for fc, visao in visao_por_fc.items():
         for row in visao:
@@ -673,7 +714,7 @@ def atualizar_sql_kpis(
         "\n".join(setor_mult_lines) + "\n" if setor_mult_lines else "",
     )
 
-    # ── 5. ind-zerados-obs (OBSERVACAO_KPI) ───────────────────────────────────
+    # ── 6. ind-zerados-obs (OBSERVACAO_KPI — KPIs Individuais 0%) ────────────
     ind_obs_lines = []
     for d in kpis_ind:
         if not d.get("MATRÍCULA") or not _is_zero(d.get("DESCONTO")):
@@ -687,18 +728,32 @@ def atualizar_sql_kpis(
         "\n".join(ind_obs_lines) + "\n" if ind_obs_lines else "",
     )
 
-    # ── 6. fiscais-picking-obs ────────────────────────────────────────────────
+    # ── 6b. ind-parcial-obs (OBSERVACAO_KPI — KPIs Individuais parciais) ──────
+    ind_parcial_obs_lines = []
+    for d in kpis_ind:
+        if not d.get("MATRÍCULA") or _is_zero(d.get("DESCONTO")):
+            continue
+        mat = _to_mat(d["MATRÍCULA"])
+        motivo = str(d.get("OBS (MOTIVO)", "") or "").replace("'", "''")
+        desconto_str = str(d.get("DESCONTO", "")).strip()
+        msg = f"{desconto_str} na Bonificação. {motivo}" if motivo else f"{desconto_str} na Bonificação."
+        ind_parcial_obs_lines.append(f"WHEN MATRICULA IN ('{mat}')\n  THEN '{msg}'")
+    sql = _replace_sql_section(
+        sql, "ind-parcial-obs",
+        "\n".join(ind_parcial_obs_lines) + "\n" if ind_parcial_obs_lines else "",
+    )
+
+    # ── 7. fiscais-picking-obs (Vistoria + Fiscais, agrupado por mensagem) ────
     fiscais_obs_lines = []
-    for f in fiscais:
-        mat = f["matricula"]
-        msg = (f.get("mensagem") or "").replace("'", "''")
-        fiscais_obs_lines.append(f"WHEN MATRICULA IN ('{mat}')\n  THEN '{msg}'")
+    for (mult, msg), mats in picking_groups.items():
+        if msg:
+            fiscais_obs_lines.append(f"WHEN MATRICULA IN ({_sql_mats(mats)})\n  THEN '{msg}'")
     sql = _replace_sql_section(
         sql, "fiscais-picking-obs",
         "\n".join(fiscais_obs_lines) + "\n" if fiscais_obs_lines else "",
     )
 
-    # ── 7. ge-obs ─────────────────────────────────────────────────────────────
+    # ── 8. ge-obs ─────────────────────────────────────────────────────────────
     ge_obs_lines = []
     msg_to_mats: dict = {}
     for g in ge_rows:
@@ -714,7 +769,7 @@ def atualizar_sql_kpis(
         "\n".join(ge_obs_lines) + "\n" if ge_obs_lines else "",
     )
 
-    # ── 8. setoriais-obs ──────────────────────────────────────────────────────
+    # ── 9. setoriais-obs ──────────────────────────────────────────────────────
     setor_obs_lines = []
     for fc, visao in visao_por_fc.items():
         for row in visao:
@@ -932,34 +987,12 @@ def main():
                     "mensagem": m.get("mensagem"),
                 })
 
-        # Combina Fiscais de Picking + Vistoria Semana para o SQL
-        fiscais_para_sql = list(fiscais)
-        mats_ja_incluidas = {f["matricula"] for f in fiscais_para_sql}
-        for v in vistoria:
-            mat_raw = v.get("MATRÍCULA")
-            try:
-                mat = str(int(float(mat_raw)))
-            except (ValueError, TypeError):
-                continue
-            if mat in mats_ja_incluidas:
-                continue
-            pct_raw = v.get("% DESCONTO")
-            try:
-                pct_float = float(pct_raw)
-            except (ValueError, TypeError):
-                continue
-            fiscais_para_sql.append({
-                "matricula": mat,
-                "pct_desconto": pct_float,
-                "mensagem": str(v.get("MENSAGEM", "") or ""),
-            })
-            mats_ja_incluidas.add(mat)
-
         atualizar_sql_kpis(
             sql_path=args.sql_path,
             data=data,
             kpis_ind=detratores,
-            fiscais=fiscais_para_sql,
+            vistoria=vistoria,
+            fiscais=fiscais,
             visao_por_fc=visao_por_fc,
             mensagens=mensagens_finais,
             ge_rows=ge_com_msg,

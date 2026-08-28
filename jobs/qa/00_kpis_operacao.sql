@@ -124,6 +124,14 @@ BEGIN
       WHEN MATRICULA IN ('18550') THEN 0.0
       -- [/AUTO:ind-zerados-mult]
 
+      -- 5b. KPIs Individuais parciais — ATUALIZAR TODA SEMANA
+      -- [AUTO:ind-parcial-mult]
+      -- [/AUTO:ind-parcial-mult]
+
+      -- 6. Vistoria Picking + Fiscais de Picking individual — ATUALIZAR TODA SEMANA
+      -- [AUTO:fiscais-picking-mult]
+      -- [/AUTO:fiscais-picking-mult]
+
       ELSE 1.0
     END AS MULT_MATRICULA,
 
@@ -138,10 +146,6 @@ BEGIN
       -- [AUTO:ind-zerados-setor-neut]
       WHEN MATRICULA IN ('18550') THEN 1.0
       -- [/AUTO:ind-zerados-setor-neut]
-
-      -- ── Fiscais de Picking individual — ATUALIZAR TODA SEMANA ──
-      -- [AUTO:fiscais-picking-mult]
-      -- [/AUTO:fiscais-picking-mult]
 
       -- ── Setoriais — ATUALIZAR TODA SEMANA ──
       -- [AUTO:setoriais-mult]
@@ -198,7 +202,11 @@ BEGIN
       THEN 'VALOR DA BONIFICAÇÃO ZERADO. Sua bonificação foi descontada em 100% devido Recebimento de uma demanda e não comunicar gestor, gerando perda desse item '
       -- [/AUTO:ind-zerados-obs]
 
-      -- 6. Fiscais de Picking individual — ATUALIZAR TODA SEMANA
+      -- 5b. KPIs Individuais parciais — ATUALIZAR TODA SEMANA
+      -- [AUTO:ind-parcial-obs]
+      -- [/AUTO:ind-parcial-obs]
+
+      -- 6. Vistoria Picking + Fiscais de Picking individual — ATUALIZAR TODA SEMANA
       -- [AUTO:fiscais-picking-obs]
       -- [/AUTO:fiscais-picking-obs]
 
