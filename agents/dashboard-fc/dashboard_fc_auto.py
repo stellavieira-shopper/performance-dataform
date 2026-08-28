@@ -51,14 +51,8 @@ COR_LARANJA         = "#b45309"
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
-]
-
-
 def get_credentials():
-    creds = Credentials.from_authorized_user_file(TOKEN_PATH, scopes=SCOPES)
+    creds = Credentials.from_authorized_user_file(TOKEN_PATH)
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
     return creds
