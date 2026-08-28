@@ -10,39 +10,53 @@ BEGIN
   );
 
   INSERT INTO `shopper-datalakehouse-qa.Ranking_Performance.Tabela_Base_Feedback_Nao_Mediveis`
-
   SELECT
-    nm.data_inicio_periodo AS data_inicio,
-    nm.data_fim_periodo AS data_final,
-    CAST(o.CRACHA AS STRING) AS CRACHA,
-    nm.MATRICULA,
-    o.NOME,
-    o.TURNO,
-    nm.SETOR AS setor,
-    nm.FC,
-    nm.atribuicao,
-    a.Direito_a_Premiacao AS assiduidade_status,
-    kpi.OBSERVACAO_KPI AS observacao_kpi,
-    nm.motivo_nao_mensuravel,
-    nm.status_ranking,
+    p.data_inicio_periodo AS data_inicio,
+    p.data_fim_periodo    AS data_final,
+    CAST(p.matricula AS STRING) AS MATRICULA,
+    p.nome                AS NOME,
+    UPPER(TRIM(p.fc))         AS FC,
+    UPPER(TRIM(p.setor))      AS SETOR,
+    UPPER(TRIM(p.turno))      AS TURNO,
+    UPPER(TRIM(p.atribuicao)) AS ATRIBUICAO,
+    p.pontuacao_atribuida  AS PONTUACAO_FINAL,
+    p.valor_bonificacao    AS VALOR_BONIFICACAO,
+    p.qtd_faltas           AS FALTAS,
+    p.qtd_atestados        AS ATESTADOS,
+    p.qtd_advertencias     AS ADVERTENCIAS,
+    p.atrasos              AS ATRASOS,
+    p.declaracao_horas     AS DECLARACAO_HORAS,
+    p.saldo_da_carteira    AS SALDO_CARTEIRA,
 
-    nm.pontuacao_nao_mensuravel AS pontuacao_atual,
-    nm.classificacao_desempenho,
+    COALESCE(a.Direito_a_Premiacao, 'NÃO') AS ASSIDUIDADE,
 
-    nm.pontos_por_assiduidade,
-    nm.pontos_por_kpi,
-    nm.pontos_por_comportamento
+    k.OBSERVACAO_KPI         AS OBSERVACAO_KPI,
+    p.motivo_desqualificacao AS MOTIVO_DESQUALIFICACAO,
 
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.Performance Colaboradores Nao Mediveis` nm
-  LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.Organograma` o
-    ON CAST(nm.MATRICULA AS STRING) = CAST(o.MATRICULA AS STRING)
+    CASE
+      WHEN p.motivo_desqualificacao IS NOT NULL AND TRIM(p.motivo_desqualificacao) != ''
+        THEN p.motivo_desqualificacao
+      WHEN k.OBSERVACAO_KPI IS NOT NULL AND TRIM(k.OBSERVACAO_KPI) NOT IN ('NULL', '')
+        THEN k.OBSERVACAO_KPI
+      ELSE ''
+    END AS OBSERVACAO_FINAL,
+
+    o.CRACHA AS CRACHA
+
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.Performance Colaboradores Nao Mediveis` p
+
   LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.Assiduidade` a
-    ON TRIM(CAST(nm.MATRICULA AS STRING)) = TRIM(CAST(a.Matricula AS STRING))
-   AND CAST(nm.data_inicio_periodo AS DATE) = CAST(a.data_inicio_periodo AS DATE)
-  LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.KPIs_OPERAÇÃO` kpi
-    ON CAST(nm.MATRICULA AS STRING) = CAST(kpi.MATRICULA AS STRING)
-   AND CAST(nm.data_inicio_periodo AS DATE) = CAST(kpi.data_inicio AS DATE)
-  WHERE nm.data_inicio_periodo = (
+    ON CAST(p.matricula AS STRING) = CAST(a.Matricula AS STRING)
+   AND p.data_inicio_periodo = a.data_inicio_periodo
+
+  LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.KPIs_OPERAÇÃO` k
+    ON CAST(p.matricula AS STRING) = CAST(k.MATRICULA AS STRING)
+   AND p.data_inicio_periodo = k.data_inicio
+
+  LEFT JOIN `shopper-datalakehouse-qa.Ranking_Performance.Organograma` o
+    ON p.matricula = o.MATRICULA
+
+  WHERE p.data_inicio_periodo = (
     SELECT MAX(data_inicio_periodo)
     FROM `shopper-datalakehouse-qa.Ranking_Performance.Performance Colaboradores Nao Mediveis`
   );
