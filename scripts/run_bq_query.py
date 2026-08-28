@@ -42,7 +42,10 @@ def main():
         client_secret=client_secret,
         refresh_token=refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
-        scopes=["https://www.googleapis.com/auth/bigquery"],
+        scopes=[
+            "https://www.googleapis.com/auth/bigquery",
+            "https://www.googleapis.com/auth/drive",
+        ],
     )
     creds.refresh(Request())
 
