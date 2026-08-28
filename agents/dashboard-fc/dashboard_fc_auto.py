@@ -576,6 +576,11 @@ def _setor_to_sql_cond(setor: str, atribuicao: str, turno: str, fc: str) -> str:
     return " AND ".join(parts)
 
 
+def _sql_str(s: str) -> str:
+    """Sanitiza string para uso em literal SQL: remove newlines, escapa aspas simples."""
+    return re.sub(r"\s*\n\s*", " ", str(s)).strip().replace("'", "''")
+
+
 def _replace_sql_section(sql: str, section: str, content: str) -> str:
     pattern = (
         rf"([ \t]*)-- \[AUTO:{re.escape(section)}\]\n"
@@ -720,7 +725,7 @@ def atualizar_sql_kpis(
         if not d.get("MATRÍCULA") or not _is_zero(d.get("DESCONTO")):
             continue
         mat = _to_mat(d["MATRÍCULA"])
-        motivo = str(d.get("OBS (MOTIVO)", "") or "").replace("'", "''")
+        motivo = _sql_str(d.get("OBS (MOTIVO)", "") or "")
         msg = f"VALOR DA BONIFICAÇÃO ZERADO. {motivo}" if motivo else "VALOR DA BONIFICAÇÃO ZERADO."
         ind_obs_lines.append(f"WHEN MATRICULA IN ('{mat}')\n  THEN '{msg}'")
     sql = _replace_sql_section(
@@ -734,7 +739,7 @@ def atualizar_sql_kpis(
         if not d.get("MATRÍCULA") or _is_zero(d.get("DESCONTO")):
             continue
         mat = _to_mat(d["MATRÍCULA"])
-        motivo = str(d.get("OBS (MOTIVO)", "") or "").replace("'", "''")
+        motivo = _sql_str(d.get("OBS (MOTIVO)", "") or "")
         desconto_str = str(d.get("DESCONTO", "")).strip()
         msg = f"{desconto_str} na Bonificação. {motivo}" if motivo else f"{desconto_str} na Bonificação."
         ind_parcial_obs_lines.append(f"WHEN MATRICULA IN ('{mat}')\n  THEN '{msg}'")
@@ -747,7 +752,7 @@ def atualizar_sql_kpis(
     fiscais_obs_lines = []
     for (mult, msg), mats in picking_groups.items():
         if msg:
-            fiscais_obs_lines.append(f"WHEN MATRICULA IN ({_sql_mats(mats)})\n  THEN '{msg}'")
+            fiscais_obs_lines.append(f"WHEN MATRICULA IN ({_sql_mats(mats)})\n  THEN '{_sql_str(msg)}'")
     sql = _replace_sql_section(
         sql, "fiscais-picking-obs",
         "\n".join(fiscais_obs_lines) + "\n" if fiscais_obs_lines else "",
@@ -761,7 +766,7 @@ def atualizar_sql_kpis(
         msg_raw = g.get("mensagem") or ""
         if not mat or not msg_raw:
             continue
-        msg_to_mats.setdefault(msg_raw.replace("'", "''"), []).append(mat)
+        msg_to_mats.setdefault(_sql_str(msg_raw), []).append(mat)
     for msg, mats in msg_to_mats.items():
         ge_obs_lines.append(f"WHEN MATRICULA IN ({_sql_mats(mats)})\n  THEN '{msg}'")
     sql = _replace_sql_section(
@@ -792,7 +797,7 @@ def atualizar_sql_kpis(
                     break
             if msg:
                 setor_obs_lines.append(
-                    f"WHEN {cond}\n  THEN '{msg.replace(chr(39), chr(39)+chr(39))}'"
+                    f"WHEN {cond}\n  THEN '{_sql_str(msg)}'"
                 )
     sql = _replace_sql_section(
         sql, "setoriais-obs",
