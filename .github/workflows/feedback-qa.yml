@@ -41,21 +41,19 @@ jobs:
 
       - name: Instalar gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
-        with:
-          skip_install: false
 
-      - name: Escrever credenciais OAuth
+      - name: Autenticar com OAuth de usuário
         run: |
           printf '{"type":"authorized_user","client_id":"%s","client_secret":"%s","refresh_token":"%s"}' \
             '${{ secrets.BQ_OAUTH_CLIENT_ID }}' \
             '${{ secrets.BQ_OAUTH_CLIENT_SECRET }}' \
             '${{ secrets.BQ_OAUTH_REFRESH_TOKEN }}' \
             > ${{ runner.temp }}/bq_oauth.json
+          gcloud auth login --cred-file=${{ runner.temp }}/bq_oauth.json
+          gcloud config set project shopper-datalakehouse-qa
 
       - name: "07 · Feedback Operacional (base — roda primeiro)"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '07'
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 07_feedback_operacional.sql"
           bq query \
@@ -66,8 +64,6 @@ jobs:
 
       - name: "08 · Feedback Fiscais"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '08'
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 08_feedback_fiscais.sql"
           bq query \
@@ -78,8 +74,6 @@ jobs:
 
       - name: "09 · Feedback Supervisores"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '09'
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 09_feedback_supervisores.sql"
           bq query \
@@ -90,8 +84,6 @@ jobs:
 
       - name: "10 · Comparativo Atividades"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '10'
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 10_feedback_comparativo_atividades.sql"
           bq query \
@@ -102,8 +94,6 @@ jobs:
 
       - name: "11 · Ocorrências da Semana"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '11'
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 11_feedback_ocorrencias.sql"
           bq query \
@@ -114,8 +104,6 @@ jobs:
 
       - name: "12 · Feedback Não Mensuráveis"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '12'
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 12_feedback_nao_mediveis.sql"
           bq query \
@@ -126,8 +114,6 @@ jobs:
 
       - name: "13 · Comparativo Equipe-Fiscal"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '13'
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/bq_oauth.json
         run: |
           echo "▶ Rodando 13_feedback_comparativo_equipe_fiscal.sql"
           bq query \

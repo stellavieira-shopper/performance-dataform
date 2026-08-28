@@ -32,16 +32,16 @@ jobs:
 
       - name: Instalar gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
-        with:
-          skip_install: false
 
-      - name: Escrever credenciais OAuth
+      - name: Autenticar com OAuth de usuário
         run: |
           printf '{"type":"authorized_user","client_id":"%s","client_secret":"%s","refresh_token":"%s"}' \
             '${{ secrets.BQ_OAUTH_CLIENT_ID }}' \
             '${{ secrets.BQ_OAUTH_CLIENT_SECRET }}' \
             '${{ secrets.BQ_OAUTH_REFRESH_TOKEN }}' \
             > ${{ runner.temp }}/bq_oauth.json
+          gcloud auth login --cred-file=${{ runner.temp }}/bq_oauth.json
+          gcloud config set project shopper-datalakehouse-qa
 
       - name: Setup Python
         uses: actions/setup-python@v5
