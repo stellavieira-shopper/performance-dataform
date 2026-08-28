@@ -231,9 +231,9 @@ def main():
     else:
         data_inicio, data_fim = periodo_atual()
 
-    ini_fmt = f"{data_inicio.day:02d}/{data_inicio.month:02d}"
-    fim_fmt = f"{data_fim.day:02d}/{data_fim.month:02d}"
-    logging.info(f"Período: {data_inicio} a {data_fim}")
+    semana_iso = data_inicio.isocalendar()[1]
+    ano = data_inicio.year
+    logging.info(f"Período: {data_inicio} a {data_fim} | Semana {semana_iso}/{ano}")
 
     bq          = get_bq_client()
     drive, gc   = get_drive_clients()
@@ -245,7 +245,7 @@ def main():
         logging.warning("Nenhum bônus encontrado para o período. Encerrando.")
         sys.exit(0)
 
-    nome_planilha = f"Bonus Recompensa {ini_fmt} a {fim_fmt}"
+    nome_planilha = f"[Bonus Recompensa][{ano}][Semana {semana_iso}]"
     ws, sheet_id = criar_ou_abrir_planilha(drive, gc, nome_planilha, folder_id)
 
     header = ["MATRICULA", "NOME", "TURNO", "SETOR", "CARGO", "CRITERIO", "VALOR_BONUS"]
