@@ -1,10 +1,9 @@
 name: Feedbacks de Performance — QA
 
 # Secrets necessários:
-#   GCP_SA_KEY              → service account JSON (para gcloud CLI)
-#   BQ_OAUTH_CLIENT_ID      → BQ_OAUTH_CLIENT_ID do .env (para acesso a tabelas externas/Drive)
-#   BQ_OAUTH_CLIENT_SECRET  → BQ_OAUTH_CLIENT_SECRET do .env
-#   BQ_OAUTH_REFRESH_TOKEN  → BQ_OAUTH_REFRESH_TOKEN do .env
+#   BQ_OAUTH_CLIENT_ID      → OAuth BigQuery (escopo bigquery)
+#   BQ_OAUTH_CLIENT_SECRET
+#   BQ_OAUTH_REFRESH_TOKEN
 
 on:
   workflow_dispatch:
@@ -37,111 +36,80 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
+    env:
+      BQ_OAUTH_CLIENT_ID: ${{ secrets.BQ_OAUTH_CLIENT_ID }}
+      BQ_OAUTH_CLIENT_SECRET: ${{ secrets.BQ_OAUTH_CLIENT_SECRET }}
+      BQ_OAUTH_REFRESH_TOKEN: ${{ secrets.BQ_OAUTH_REFRESH_TOKEN }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Autenticar gcloud (service account)
-        uses: google-github-actions/auth@v2
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          python-version: '3.11'
 
-      - uses: google-github-actions/setup-gcloud@v2
-
-      - name: Obter access token OAuth de usuário
+      - name: Instalar dependências
         run: |
-          ACCESS_TOKEN=$(curl -s -X POST https://oauth2.googleapis.com/token \
-            --data-urlencode "client_id=${{ secrets.BQ_OAUTH_CLIENT_ID }}" \
-            --data-urlencode "client_secret=${{ secrets.BQ_OAUTH_CLIENT_SECRET }}" \
-            --data-urlencode "refresh_token=${{ secrets.BQ_OAUTH_REFRESH_TOKEN }}" \
-            --data-urlencode "grant_type=refresh_token" \
-            | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-          echo "$ACCESS_TOKEN" > ${{ runner.temp }}/bq_token.txt
-          # JSON authorized_user para scripts Python
+          pip install --quiet \
+            google-auth \
+            google-cloud-bigquery \
+            google-auth-oauthlib \
+            google-auth-httplib2 \
+            google-api-python-client \
+            reportlab \
+            python-dotenv \
+            db-dtypes
+
+      - name: Preparar credenciais OAuth (para scripts Python com Drive)
+        run: |
           printf '{"type":"authorized_user","client_id":"%s","client_secret":"%s","refresh_token":"%s"}' \
-            '${{ secrets.BQ_OAUTH_CLIENT_ID }}' \
-            '${{ secrets.BQ_OAUTH_CLIENT_SECRET }}' \
-            '${{ secrets.BQ_OAUTH_REFRESH_TOKEN }}' \
+            "$BQ_OAUTH_CLIENT_ID" \
+            "$BQ_OAUTH_CLIENT_SECRET" \
+            "$BQ_OAUTH_REFRESH_TOKEN" \
             > ${{ runner.temp }}/bq_oauth.json
 
       - name: "07 · Feedback Operacional (base — roda primeiro)"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '07'
         run: |
           echo "▶ Rodando 07_feedback_operacional.sql"
-          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
-            --use_legacy_sql=false \
-            --project_id=shopper-datalakehouse-qa \
-            --location=southamerica-east1 \
-            < jobs/qa/07_feedback_operacional.sql
+          python scripts/run_bq_query.py jobs/qa/07_feedback_operacional.sql
 
       - name: "08 · Feedback Fiscais"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '08'
         run: |
           echo "▶ Rodando 08_feedback_fiscais.sql"
-          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
-            --use_legacy_sql=false \
-            --project_id=shopper-datalakehouse-qa \
-            --location=southamerica-east1 \
-            < jobs/qa/08_feedback_fiscais.sql
+          python scripts/run_bq_query.py jobs/qa/08_feedback_fiscais.sql
 
       - name: "09 · Feedback Supervisores"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '09'
         run: |
           echo "▶ Rodando 09_feedback_supervisores.sql"
-          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
-            --use_legacy_sql=false \
-            --project_id=shopper-datalakehouse-qa \
-            --location=southamerica-east1 \
-            < jobs/qa/09_feedback_supervisores.sql
+          python scripts/run_bq_query.py jobs/qa/09_feedback_supervisores.sql
 
       - name: "10 · Comparativo Atividades"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '10'
         run: |
           echo "▶ Rodando 10_feedback_comparativo_atividades.sql"
-          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
-            --use_legacy_sql=false \
-            --project_id=shopper-datalakehouse-qa \
-            --location=southamerica-east1 \
-            < jobs/qa/10_feedback_comparativo_atividades.sql
+          python scripts/run_bq_query.py jobs/qa/10_feedback_comparativo_atividades.sql
 
       - name: "11 · Ocorrências da Semana"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '11'
         run: |
           echo "▶ Rodando 11_feedback_ocorrencias.sql"
-          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
-            --use_legacy_sql=false \
-            --project_id=shopper-datalakehouse-qa \
-            --location=southamerica-east1 \
-            < jobs/qa/11_feedback_ocorrencias.sql
+          python scripts/run_bq_query.py jobs/qa/11_feedback_ocorrencias.sql
 
       - name: "12 · Feedback Não Mensuráveis"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '12'
         run: |
           echo "▶ Rodando 12_feedback_nao_mediveis.sql"
-          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
-            --use_legacy_sql=false \
-            --project_id=shopper-datalakehouse-qa \
-            --location=southamerica-east1 \
-            < jobs/qa/12_feedback_nao_mediveis.sql
+          python scripts/run_bq_query.py jobs/qa/12_feedback_nao_mediveis.sql
 
       - name: "13 · Comparativo Equipe-Fiscal"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == '13'
         run: |
           echo "▶ Rodando 13_feedback_comparativo_equipe_fiscal.sql"
-          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
-            --use_legacy_sql=false \
-            --project_id=shopper-datalakehouse-qa \
-            --location=southamerica-east1 \
-            < jobs/qa/13_feedback_comparativo_equipe_fiscal.sql
-
-      - name: "Relatorio · Setup Python"
-        if: github.event.inputs.job == 'all' || github.event.inputs.job == 'relatorio'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: "Relatorio · Instalar dependencias"
-        if: github.event.inputs.job == 'all' || github.event.inputs.job == 'relatorio'
-        run: pip install google-cloud-bigquery google-auth reportlab python-dotenv
+          python scripts/run_bq_query.py jobs/qa/13_feedback_comparativo_equipe_fiscal.sql
 
       - name: "Relatorio · Gerar PDF de bonus"
         if: github.event.inputs.job == 'all' || github.event.inputs.job == 'relatorio'
