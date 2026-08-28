@@ -5,8 +5,9 @@ Uso:
   python dashboard_fc_auto.py --data DD/MM/AAAA
 
 Variáveis de ambiente obrigatórias:
-  GOOGLE_SERVICE_ACCOUNT_JSON  — JSON da service account (string, não caminho)
-  ANTHROPIC_API_KEY            — chave da API Anthropic
+  SHEETS_TOKEN_PATH  — caminho para o sheets_token.json (OAuth2 pessoal)
+                       Em Actions: gravado de SHEETS_TOKEN_JSON secret.
+  ANTHROPIC_API_KEY  — chave da API Anthropic
 """
 
 import argparse
@@ -22,7 +23,9 @@ import anthropic
 import gspread
 import openpyxl
 import requests
-from google.oauth2.service_account import Credentials
+from dotenv import load_dotenv
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -31,10 +34,16 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 )
 
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+
 # ── IDs das planilhas ────────────────────────────────────────────────────────
 SPREADSHEET_ID_FC   = "1j-mRJN2IHR3LjHaFtVgHtg2pH1XS3becphjBVjD02Ug"
 SPREADSHEET_ID_GE   = "1E9ZXe2LtYySON6YYZYpn3BFEk-RiU-NsBJzmg6FUqrw"
 EXPORT_MIME         = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+TOKEN_PATH = os.getenv("SHEETS_TOKEN_PATH") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "sheets_token.json"
+)
 
 # Cores
 COR_VERDE_ESCURO    = "#274e13"
@@ -44,14 +53,15 @@ COR_LARANJA         = "#b45309"
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/drive",
 ]
 
 
 def get_credentials():
-    sa_json = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
-    info = json.loads(sa_json)
-    return Credentials.from_service_account_info(info, scopes=SCOPES)
+    creds = Credentials.from_authorized_user_file(TOKEN_PATH, scopes=SCOPES)
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+    return creds
 
 
 def download_xlsx(file_id: str, creds) -> openpyxl.Workbook:

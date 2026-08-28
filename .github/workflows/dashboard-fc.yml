@@ -25,10 +25,13 @@ jobs:
       - name: Instalar dependências
         run: pip install -r agents/dashboard-fc/requirements.txt
 
+      - name: Escrever token OAuth
+        run: echo '${{ secrets.SHEETS_TOKEN_JSON }}' > ${{ runner.temp }}/sheets_token.json
+
       - name: Gerar mensagens FC
         env:
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SA_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SHEETS_TOKEN_PATH: ${{ runner.temp }}/sheets_token.json
         run: |
           DATA_ARG=""
           if [ -n "${{ github.event.inputs.data }}" ]; then
