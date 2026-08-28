@@ -932,11 +932,34 @@ def main():
                     "mensagem": m.get("mensagem"),
                 })
 
+        # Combina Fiscais de Picking + Vistoria Semana para o SQL
+        fiscais_para_sql = list(fiscais)
+        mats_ja_incluidas = {f["matricula"] for f in fiscais_para_sql}
+        for v in vistoria:
+            mat_raw = v.get("MATRÍCULA")
+            try:
+                mat = str(int(float(mat_raw)))
+            except (ValueError, TypeError):
+                continue
+            if mat in mats_ja_incluidas:
+                continue
+            pct_raw = v.get("% DESCONTO")
+            try:
+                pct_float = float(pct_raw)
+            except (ValueError, TypeError):
+                continue
+            fiscais_para_sql.append({
+                "matricula": mat,
+                "pct_desconto": pct_float,
+                "mensagem": str(v.get("MENSAGEM", "") or ""),
+            })
+            mats_ja_incluidas.add(mat)
+
         atualizar_sql_kpis(
             sql_path=args.sql_path,
             data=data,
             kpis_ind=detratores,
-            fiscais=fiscais,
+            fiscais=fiscais_para_sql,
             visao_por_fc=visao_por_fc,
             mensagens=mensagens_finais,
             ge_rows=ge_com_msg,
