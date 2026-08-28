@@ -17,7 +17,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import google.generativeai as genai
 import gspread
@@ -112,6 +112,44 @@ def ler_visao_fc(wb, fc: str) -> list[dict]:
         for row in rows[1:]
         if row[0]  # SETOR preenchido
     ]
+
+
+def ler_kpis_individuais(wb, data_quinta: str) -> list[dict]:
+    """Lê aba 'KPIs Individuais' filtrando pela DATA (QUINTA) da semana."""
+    ws = wb["KPIs Individuais"]
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return []
+    header = rows[0]
+
+    # data_quinta no formato DD/MM/YYYY
+    try:
+        target_date = datetime.strptime(data_quinta, "%d/%m/%Y").date()
+    except ValueError:
+        target_date = None
+
+    result = []
+    for row in rows[1:]:
+        if not any(v is not None for v in row):
+            continue
+        d = dict(zip(header, row))
+        if not d.get("DATA (QUINTA)"):
+            continue
+
+        cell_date = d["DATA (QUINTA)"]
+        if hasattr(cell_date, "date"):
+            row_date = cell_date.date()
+        else:
+            try:
+                row_date = datetime.strptime(str(cell_date), "%d/%m/%Y").date()
+            except ValueError:
+                continue
+
+        if target_date is None or row_date == target_date:
+            d["DATA (QUINTA)"] = row_date.strftime("%d/%m/%Y") if row_date else str(cell_date)
+            result.append(d)
+
+    return result
 
 
 def ler_vistoria_semana(wb) -> list[dict]:
@@ -426,12 +464,364 @@ def gerar_pdf_vistoria(vistoria: list[dict], output_path: str):
     print(f"PDF Vistoria: {output_path}")
 
 
+def ler_fiscais_picking(wb, data_quinta: str) -> list[dict]:
+    """Lê aba 'Fiscais de Picking', filtrando pelo período da semana."""
+    if "Fiscais de Picking" not in wb.sheetnames:
+        return []
+    ws = wb["Fiscais de Picking"]
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return []
+
+    quinta = datetime.strptime(data_quinta, "%d/%m/%Y").date()
+    sexta = quinta - timedelta(days=6)
+    periodo_str = f"{sexta.strftime('%d.%m')}-{quinta.strftime('%d.%m')}"
+
+    result = []
+    for row in rows[1:]:
+        parsed = [extract_val(c) for c in row]
+        if not any(v for v in parsed):
+            continue
+        if len(parsed) < 10:
+            continue
+        matricula, _, operador, setor, atribuicao, turno, fc, data_apur, pct_desconto, mensagem = parsed[:10]
+        if data_apur and periodo_str in str(data_apur):
+            try:
+                mat = str(int(float(matricula))) if matricula is not None else None
+            except (ValueError, TypeError):
+                mat = str(matricula) if matricula is not None else None
+            if not mat:
+                continue
+            result.append({
+                "matricula": mat,
+                "fc": str(fc) if fc else "",
+                "setor": str(setor) if setor else "",
+                "atribuicao": str(atribuicao) if atribuicao else "",
+                "turno": str(turno) if turno else "",
+                "pct_desconto": pct_desconto,
+                "mensagem": str(mensagem) if mensagem else "",
+            })
+    return result
+
+
+# ── Atualização do SQL ────────────────────────────────────────────────────────
+
+def _sql_mats(mats: list) -> str:
+    return ", ".join(f"'{m}'" for m in mats)
+
+
+def _desconto_to_mult(desconto_str) -> str:
+    """'-25%'→'0.75', '0%'→'0.0', float -0.5→'0.5'"""
+    if desconto_str is None:
+        return "1.0"
+    s = str(desconto_str).strip()
+    try:
+        if "%" in s:
+            pct = float(s.replace("%", "").replace("+", ""))
+            mult = 1.0 + pct / 100.0
+        else:
+            mult = 1.0 + float(s)
+        return str(round(max(0.0, mult), 4))
+    except ValueError:
+        return "1.0"
+
+
+def _setor_to_sql_cond(setor: str, atribuicao: str, turno: str, fc: str) -> str:
+    s = setor.upper().strip()
+    a = (atribuicao or "").upper().strip()
+    t = (turno or "").upper().strip()
+    parts = []
+
+    if "PRÉ" in s or "PRE" in s:
+        if "EXPED" in s:
+            parts.append("(SETOR_ORIGINAL LIKE '%PRÉ%EXPED%' OR SETOR_ORIGINAL LIKE '%PRE%EXPED%')")
+        else:
+            parts.append(f"SETOR_ORIGINAL LIKE '%{s}%'")
+    elif "REPOSIÇÃO" in s or "REPOSICAO" in s or "REPOSICÃO" in s:
+        parts.append("SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO')")
+    elif "RECEBIMENTO" in s:
+        parts.append("SETOR_ORIGINAL LIKE '%RECEBIMENTO%'")
+    elif "EXPEDIÇÃO" in s or "EXPEDICAO" in s:
+        parts.append("SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO')")
+    elif "PICKING" in s:
+        parts.append("SETOR_ORIGINAL = 'PICKING'")
+    elif "PACKING" in s:
+        parts.append("SETOR_ORIGINAL = 'PACKING'")
+    elif "FRACIONAMENTO" in s or "FRAC" in s:
+        parts.append("SETOR_ORIGINAL LIKE '%FRACIONAMENTO%'")
+    else:
+        parts.append(f"UPPER(TRIM(SETOR_ORIGINAL)) = '{s}'")
+
+    if "FRESH" in s:
+        parts.append("AREA = 'FRESH'")
+    elif "MERCEARIA" in s:
+        parts.append("AREA = 'MERCEARIA'")
+
+    parts.append(f"FC = '{fc}'")
+
+    if a and a not in ("TODAS", "TODOS", ""):
+        for kw in ("FLV", "CONGELADO", "REFRIGERADO"):
+            if kw in a:
+                parts.append(f"ATRIBUICAO_ORIGINAL LIKE '%{kw}%'")
+                break
+        else:
+            parts.append(f"ATRIBUICAO_ORIGINAL LIKE '%{a}%'")
+
+    if t and t not in ("TODOS", "TODAS", ""):
+        turnos = [x.strip() for x in t.replace("/", ",").split(",")]
+        turno_list = ", ".join(f"'{tu}'" for tu in turnos)
+        cond = f"TURNO IN ({turno_list})" if len(turnos) > 1 else f"TURNO = {turno_list}"
+        parts.append(cond)
+
+    return " AND ".join(parts)
+
+
+def _replace_sql_section(sql: str, section: str, content: str) -> str:
+    start_marker = f"-- [AUTO:{section}]"
+    end_marker = f"-- [/AUTO:{section}]"
+    pattern = rf"{re.escape(start_marker)}\n.*?{re.escape(end_marker)}"
+    replacement = f"{start_marker}\n{content}      {end_marker}"
+    return re.sub(pattern, replacement, sql, flags=re.DOTALL)
+
+
+def _to_mat(val) -> str:
+    try:
+        return str(int(float(val)))
+    except (ValueError, TypeError):
+        return str(val) if val is not None else ""
+
+
+def _is_zero(desconto) -> bool:
+    if desconto is None:
+        return False
+    s = str(desconto).strip().replace("%", "").replace("+", "")
+    try:
+        return float(s) == 0.0
+    except ValueError:
+        return False
+
+
+def atualizar_sql_kpis(
+    sql_path: str,
+    data: str,
+    kpis_ind: list,
+    fiscais: list,
+    visao_por_fc: dict,
+    mensagens: list,
+    ge_rows: list,
+):
+    with open(sql_path, encoding="utf-8") as f:
+        sql = f.read()
+
+    hoje_str = datetime.strptime(data, "%d/%m/%Y").strftime("%d/%m/%Y")
+    sql = re.sub(r"-- Última atualização: [\d/]+", f"-- Última atualização: {hoje_str}", sql)
+
+    # ── 1. ind-zerados-mult (MULT_MATRICULA) ──────────────────────────────────
+    zerado_mats = list({_to_mat(d["MATRÍCULA"]) for d in kpis_ind
+                        if d.get("MATRÍCULA") and _is_zero(d.get("DESCONTO"))})
+    zerado_mats += [f["matricula"] for f in fiscais
+                    if f.get("matricula") and _is_zero(f.get("pct_desconto"))]
+    zerado_mats = sorted(set(zerado_mats))
+
+    ind_zerados_mult = (f"      WHEN MATRICULA IN ({_sql_mats(zerado_mats)}) THEN 0.0\n"
+                        if zerado_mats else "")
+    sql = _replace_sql_section(sql, "ind-zerados-mult", ind_zerados_mult)
+
+    # ── 2. ind-zerados-setor-neut (neutralizador em MULT_SETOR) ──────────────
+    sql = _replace_sql_section(
+        sql, "ind-zerados-setor-neut",
+        f"      WHEN MATRICULA IN ({_sql_mats(zerado_mats)}) THEN 1.0\n" if zerado_mats else "",
+    )
+
+    # ── 3. fiscais-picking-mult (MULT_SETOR, por matrícula) ───────────────────
+    picking_mult_lines = []
+    for f in fiscais:
+        mat = f["matricula"]
+        mult = _desconto_to_mult(f.get("pct_desconto"))
+        picking_mult_lines.append(f"      WHEN MATRICULA IN ('{mat}') THEN {mult}")
+    sql = _replace_sql_section(
+        sql, "fiscais-picking-mult",
+        "\n".join(picking_mult_lines) + "\n" if picking_mult_lines else "",
+    )
+
+    # ── 4. setoriais-mult (MULT_SETOR, por setor/FC) ──────────────────────────
+    setor_mult_lines = []
+    for fc, visao in visao_por_fc.items():
+        for row in visao:
+            setor = row.get("SETOR", "")
+            if not setor:
+                continue
+            desconto = row.get("DESCONTO", "")
+            if not desconto or str(desconto).strip() in ("", "0%", "0"):
+                continue
+            mult = _desconto_to_mult(desconto)
+            atrib = row.get("ATRIBUIÇÃO", "") or ""
+            turno = row.get("TURNO", "") or ""
+            cond = _setor_to_sql_cond(setor, atrib, turno, fc)
+            setor_mult_lines.append(f"      WHEN {cond} THEN {mult}")
+    sql = _replace_sql_section(
+        sql, "setoriais-mult",
+        "\n".join(setor_mult_lines) + "\n" if setor_mult_lines else "",
+    )
+
+    # ── 5. ind-zerados-obs (OBSERVACAO_KPI) ───────────────────────────────────
+    ind_obs_lines = []
+    for d in kpis_ind:
+        if not d.get("MATRÍCULA") or not _is_zero(d.get("DESCONTO")):
+            continue
+        mat = _to_mat(d["MATRÍCULA"])
+        motivo = str(d.get("OBS (MOTIVO)", "") or "").replace("'", "''")
+        msg = f"VALOR DA BONIFICAÇÃO ZERADO. {motivo}" if motivo else "VALOR DA BONIFICAÇÃO ZERADO."
+        ind_obs_lines.append(f"      WHEN MATRICULA IN ('{mat}')\n        THEN '{msg}'")
+    sql = _replace_sql_section(
+        sql, "ind-zerados-obs",
+        "\n".join(ind_obs_lines) + "\n" if ind_obs_lines else "",
+    )
+
+    # ── 6. fiscais-picking-obs ────────────────────────────────────────────────
+    fiscais_obs_lines = []
+    for f in fiscais:
+        mat = f["matricula"]
+        msg = (f.get("mensagem") or "").replace("'", "''")
+        fiscais_obs_lines.append(f"      WHEN MATRICULA IN ('{mat}')\n        THEN '{msg}'")
+    sql = _replace_sql_section(
+        sql, "fiscais-picking-obs",
+        "\n".join(fiscais_obs_lines) + "\n" if fiscais_obs_lines else "",
+    )
+
+    # ── 7. ge-obs ─────────────────────────────────────────────────────────────
+    # Group GE rows with same message
+    ge_obs_lines = []
+    msg_to_mats: dict = {}
+    for g in ge_rows:
+        mat = g.get("matricula")
+        msg_raw = g.get("mensagem") or ""
+        if not mat or not msg_raw:
+            continue
+        msg_to_mats.setdefault(msg_raw.replace("'", "''"), []).append(mat)
+    for msg, mats in msg_to_mats.items():
+        ge_obs_lines.append(f"      WHEN MATRICULA IN ({_sql_mats(mats)})\n        THEN '{msg}'")
+    sql = _replace_sql_section(
+        sql, "ge-obs",
+        "\n".join(ge_obs_lines) + "\n" if ge_obs_lines else "",
+    )
+
+    # ── 8. setoriais-obs ──────────────────────────────────────────────────────
+    setor_obs_lines = []
+    for fc, visao in visao_por_fc.items():
+        for row in visao:
+            setor = row.get("SETOR", "")
+            if not setor:
+                continue
+            desconto = row.get("DESCONTO", "")
+            if not desconto or str(desconto).strip() in ("", "0%", "0"):
+                continue
+            atrib = row.get("ATRIBUIÇÃO", "") or ""
+            turno = row.get("TURNO", "") or ""
+            cond = _setor_to_sql_cond(setor, atrib, turno, fc)
+            # Find matching generated message
+            msg = ""
+            for m in mensagens:
+                if (m.get("fc") == fc and
+                        m.get("setor", "").upper() == setor.upper() and
+                        m.get("atribuicao", "").upper() in (atrib.upper(), "TODAS", "") and
+                        m.get("turno", "").upper() in (turno.upper(), "TODOS", "")):
+                    msg = m.get("mensagem", "")
+                    break
+            if msg:
+                setor_obs_lines.append(
+                    f"      WHEN {cond}\n        THEN '{msg.replace(chr(39), chr(39)+chr(39))}'"
+                )
+    sql = _replace_sql_section(
+        sql, "setoriais-obs",
+        "\n".join(setor_obs_lines) + "\n" if setor_obs_lines else "",
+    )
+
+    with open(sql_path, "w", encoding="utf-8") as f:
+        f.write(sql)
+    print(f"SQL atualizado: {sql_path}")
+
+
+def gerar_pdf_detratores(detratores: list[dict], data: str, output_path: str):
+    if not detratores:
+        print("Detratores: nenhuma entrada, PDF não gerado.")
+        return
+
+    doc = SimpleDocTemplate(output_path, pagesize=A4,
+                            leftMargin=1.5*cm, rightMargin=1.5*cm,
+                            topMargin=1.5*cm, bottomMargin=1.5*cm)
+    styles = getSampleStyleSheet()
+    cor_header = colors.HexColor("#1a3a5c")
+
+    title_style = ParagraphStyle("title", parent=styles["Title"],
+                                 textColor=colors.white, fontSize=13)
+    cell_style  = ParagraphStyle("cell", parent=styles["Normal"], fontSize=8, leading=11)
+    hdr_style   = ParagraphStyle("hdr", parent=styles["Normal"],
+                                 textColor=colors.white, fontName="Helvetica-Bold", fontSize=8)
+
+    story = []
+
+    header_data = [[Paragraph(f"Detratores Individuais — {data}", title_style)]]
+    header_table = Table(header_data, colWidths=[17*cm])
+    header_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), cor_header),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 0.4*cm))
+
+    col_widths = [2.2*cm, 1.8*cm, 4.5*cm, 1.5*cm, 1.8*cm, 2.0*cm, 3.2*cm]
+    col_headers = ["DATA", "MATRÍCULA", "NOME", "FC", "TURNO", "DESCONTO", "MOTIVO"]
+
+    table_data = [[Paragraph(h, hdr_style) for h in col_headers]]
+    for d in detratores:
+        mat_raw = d.get("MATRÍCULA")
+        try:
+            mat = str(int(float(mat_raw)))
+        except (ValueError, TypeError):
+            mat = str(mat_raw) if mat_raw is not None else ""
+
+        pct_raw = d.get("DESCONTO", "")
+        pct_str = str(pct_raw) if pct_raw is not None else ""
+
+        table_data.append([
+            Paragraph(str(d.get("DATA (QUINTA)", "")), cell_style),
+            Paragraph(mat, cell_style),
+            Paragraph(str(d.get("NOME", "")), cell_style),
+            Paragraph(str(d.get("FC", "")), cell_style),
+            Paragraph(str(d.get("TURNO", "")), cell_style),
+            Paragraph(pct_str, cell_style),
+            Paragraph(str(d.get("OBS (MOTIVO)", "") or ""), cell_style),
+        ])
+
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), cor_header),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f0f4f8")]),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.lightgrey),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 0.3*cm))
+    story.append(Paragraph(f"Total: {len(detratores)} detratores", styles["Normal"]))
+
+    doc.build(story)
+    print(f"PDF Detratores: {output_path}")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", required=False, help="Data no formato DD/MM/AAAA")
     parser.add_argument("--output-dir", default=".", help="Diretório de saída dos PDFs")
+    parser.add_argument("--sql-path", required=False, help="Caminho para 00_kpis_operacao.sql a atualizar")
     args = parser.parse_args()
 
     data = args.data or datetime.today().strftime("%d/%m/%Y")
@@ -475,6 +865,10 @@ def main():
                 "mensagem": mensagem,
             })
 
+    # ── Fiscais de Picking ────────────────────────────────────────────────────
+    fiscais = ler_fiscais_picking(wb_fc, data)
+    print(f"Fiscais de Picking: {len(fiscais)} entradas para o período")
+
     # ── Mensagens GE ──────────────────────────────────────────────────────────
     ge_rows = ler_ge(wb_ge)
     print(f"GE: {len(ge_rows)} linhas com JUSTIFICATIVA preenchida")
@@ -503,6 +897,37 @@ def main():
     vistoria = ler_vistoria_semana(wb_fc)
     pdf_vistoria = os.path.join(output_dir, f"vistoria_picking_{data_fmt}.pdf")
     gerar_pdf_vistoria(vistoria, pdf_vistoria)
+
+    detratores = ler_kpis_individuais(wb_fc, data)
+    if detratores:
+        pdf_detratores = os.path.join(output_dir, f"detratores_individuais_{data_fmt}.pdf")
+        gerar_pdf_detratores(detratores, data, pdf_detratores)
+    else:
+        print("KPIs Individuais: nenhum detrator para a data informada.")
+
+    # ── Atualizar SQL ──────────────────────────────────────────────────────────
+    if args.sql_path:
+        visao_por_fc = {}
+        for fc in ["FC1", "FC2", "FC3"]:
+            visao_por_fc[fc] = ler_visao_fc(wb_fc, fc)
+
+        ge_com_msg = []
+        for m in mensagens_finais:
+            if m.get("setor") == "GESTÃO DE ESTOQUE":
+                ge_com_msg.append({
+                    "matricula": m.get("matricula"),
+                    "mensagem": m.get("mensagem"),
+                })
+
+        atualizar_sql_kpis(
+            sql_path=args.sql_path,
+            data=data,
+            kpis_ind=detratores,
+            fiscais=fiscais,
+            visao_por_fc=visao_por_fc,
+            mensagens=mensagens_finais,
+            ge_rows=ge_com_msg,
+        )
 
     print(f"\nConcluído. {len(mensagens_finais)} mensagens geradas.")
 
