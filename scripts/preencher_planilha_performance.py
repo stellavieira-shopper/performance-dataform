@@ -73,7 +73,7 @@ def main():
 
     logging.info(f"Registros com pagamento e CPF: {len(rows)}")
 
-    linhas = []
+    linhas = [["cpf", "valor"]]
     for r in rows:
         valor_fmt = f"{float(r.valor):.2f}".replace(".", ",")
         linhas.append([str(r.cpf).strip().zfill(11), valor_fmt])

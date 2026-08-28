@@ -152,69 +152,18 @@ def criar_ou_abrir_planilha(drive, gc, nome: str, folder_id: str):
 
 
 def buscar_bonus(bq, data_inicio: date) -> list:
-    """Retorna lista de dicts com dados de bônus por matrícula e critério."""
+    """Retorna lista de (cpf, valor_bonus) para o período, lida direto da carteira_operação."""
     di = data_inicio.isoformat()
-
     sql = f"""
-    WITH bonus AS (
-      SELECT
-        CAST(MATRICULA AS STRING) AS MATRICULA,
-        NOME,
-        TURNO,
-        setor,
-        atribuicao,
-        'Boa Evolucao'   AS CRITERIO,
-        50               AS VALOR_BONUS
-      FROM `{TABLE_OP}`
-      WHERE boa_evolucao = TRUE AND data_inicio = '{di}'
-
-      UNION ALL
-
-      SELECT CAST(MATRICULA AS STRING), NOME, TURNO, setor, atribuicao,
-             'Top 1 Setor', 50
-      FROM `{TABLE_OP}`
-      WHERE top_1_setor = TRUE AND data_inicio = '{di}'
-
-      UNION ALL
-
-      SELECT CAST(MATRICULA AS STRING), NOME, TURNO, setor, atribuicao,
-             'Bom Comeco', 50
-      FROM `{TABLE_OP}`
-      WHERE bom_comeco = TRUE AND data_inicio = '{di}'
-
-      UNION ALL
-
-      SELECT CAST(MATRICULA AS STRING), NOME, TURNO, setor, atribuicao,
-             'Reforco Operacao - Operacional', 50
-      FROM `{TABLE_OP}`
-      WHERE reforco_operacao = TRUE AND data_inicio = '{di}'
-
-      UNION ALL
-
-      SELECT CAST(MATRICULA AS STRING), NOME, TURNO, setor, atribuicao,
-             'Reforco Operacao - Fiscal', 50
-      FROM `{TABLE_FIS}`
-      WHERE reforco_operacao = TRUE AND data_inicio = '{di}'
-
-      UNION ALL
-
-      SELECT CAST(MATRICULA AS STRING), NOME, TURNO, setor, atribuicao,
-             'Reforco Operacao - Supervisor', 50
-      FROM `{TABLE_SUP}`
-      WHERE reforco_operacao = TRUE AND data_inicio = '{di}'
-    )
     SELECT
-      MATRICULA,
-      COALESCE(NOME, '') AS NOME,
-      COALESCE(TURNO, '') AS TURNO,
-      COALESCE(setor, '') AS SETOR,
-      COALESCE(atribuicao, '') AS CARGO,
-      CRITERIO,
-      VALOR_BONUS
-    FROM bonus
-    ORDER BY CRITERIO, NOME
+      LPAD(CAST(cpf AS STRING), 11, '0') AS cpf,
+      CAST(bonus_recompensa AS FLOAT64)  AS valor
+    FROM `{PROJECT_ID}.Ranking_Performance.carteira_operação`
+    WHERE data_inicio_ranking = '{di}'
+      AND CAST(bonus_recompensa AS FLOAT64) > 0
+      AND cpf IS NOT NULL
+    ORDER BY cpf
     """
-
     rows = list(bq.query(sql).result())
     logging.info(f"Registros de bônus: {len(rows)}")
     return rows
@@ -248,9 +197,9 @@ def main():
     nome_planilha = f"[Bonus Recompensa][{ano}][Semana {semana_iso}]"
     ws, sheet_id = criar_ou_abrir_planilha(drive, gc, nome_planilha, folder_id)
 
-    header = ["MATRICULA", "NOME", "TURNO", "SETOR", "CARGO", "CRITERIO", "VALOR_BONUS"]
+    header = ["cpf", "valor"]
     dados  = [
-        [r.MATRICULA, r.NOME, r.TURNO, r.SETOR, r.CARGO, r.CRITERIO, r.VALOR_BONUS]
+        [str(r.cpf).zfill(11), f"{float(r.valor):.2f}".replace(".", ",")]
         for r in rows
     ]
 
