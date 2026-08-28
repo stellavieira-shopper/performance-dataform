@@ -26,10 +26,15 @@ def main():
     parser.add_argument("--location", default="southamerica-east1")
     args = parser.parse_args()
 
-    # BQ_DRIVE_* tem escopo bigquery + drive (necessário para tabelas externas)
-    client_id = os.environ["BQ_DRIVE_CLIENT_ID"]
-    client_secret = os.environ["BQ_DRIVE_CLIENT_SECRET"]
-    refresh_token = os.environ["BQ_DRIVE_REFRESH_TOKEN"]
+    # Preferir BQ_DRIVE_* (escopo bigquery+drive, necessário para tabelas externas).
+    # Cair em BQ_OAUTH_* se BQ_DRIVE_* não estiver configurado.
+    client_id = os.environ.get("BQ_DRIVE_CLIENT_ID") or os.environ.get("BQ_OAUTH_CLIENT_ID")
+    client_secret = os.environ.get("BQ_DRIVE_CLIENT_SECRET") or os.environ.get("BQ_OAUTH_CLIENT_SECRET")
+    refresh_token = os.environ.get("BQ_DRIVE_REFRESH_TOKEN") or os.environ.get("BQ_OAUTH_REFRESH_TOKEN")
+
+    if not client_id or not client_secret or not refresh_token:
+        print("ERRO: nenhuma credencial BQ_DRIVE_* ou BQ_OAUTH_* encontrada no ambiente.", file=sys.stderr)
+        sys.exit(1)
 
     creds = Credentials(
         token=None,
