@@ -1,9 +1,10 @@
 name: Ranking QA — Pipeline Semanal
 
-# Secrets necessários (copiar do .env):
-#   BQ_OAUTH_CLIENT_ID      → valor de BQ_OAUTH_CLIENT_ID
-#   BQ_OAUTH_CLIENT_SECRET  → valor de BQ_OAUTH_CLIENT_SECRET
-#   BQ_OAUTH_REFRESH_TOKEN  → valor de BQ_OAUTH_REFRESH_TOKEN
+# Secrets necessários:
+#   GCP_SA_KEY              → service account JSON (para gcloud CLI)
+#   BQ_OAUTH_CLIENT_ID      → BQ_OAUTH_CLIENT_ID do .env (para tabelas externas/Drive)
+#   BQ_OAUTH_CLIENT_SECRET  → BQ_OAUTH_CLIENT_SECRET do .env
+#   BQ_OAUTH_REFRESH_TOKEN  → BQ_OAUTH_REFRESH_TOKEN do .env
 
 on:
   # schedule:
@@ -35,18 +36,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Instalar gcloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - name: Autenticar gcloud (service account)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Autenticar com OAuth de usuário
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Obter access token OAuth de usuário
         run: |
-          printf '{"type":"authorized_user","client_id":"%s","client_secret":"%s","refresh_token":"%s"}' \
-            '${{ secrets.BQ_OAUTH_CLIENT_ID }}' \
-            '${{ secrets.BQ_OAUTH_CLIENT_SECRET }}' \
-            '${{ secrets.BQ_OAUTH_REFRESH_TOKEN }}' \
-            > ${{ runner.temp }}/bq_oauth.json
-          gcloud auth login --cred-file=${{ runner.temp }}/bq_oauth.json
-          gcloud config set project shopper-datalakehouse-qa
+          ACCESS_TOKEN=$(curl -s -X POST https://oauth2.googleapis.com/token \
+            --data-urlencode "client_id=${{ secrets.BQ_OAUTH_CLIENT_ID }}" \
+            --data-urlencode "client_secret=${{ secrets.BQ_OAUTH_CLIENT_SECRET }}" \
+            --data-urlencode "refresh_token=${{ secrets.BQ_OAUTH_REFRESH_TOKEN }}" \
+            --data-urlencode "grant_type=refresh_token" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+          echo "$ACCESS_TOKEN" > ${{ runner.temp }}/bq_token.txt
 
       # ─────────────────────────────────────────────
       # 00 — KPIs Operação
@@ -58,7 +63,7 @@ jobs:
           github.event.inputs.job == '00'
         run: |
           echo "▶ Rodando 00_kpis_operacao.sql"
-          bq query \
+          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
             --use_legacy_sql=false \
             --project_id=shopper-datalakehouse-qa \
             --location=southamerica-east1 \
@@ -74,7 +79,7 @@ jobs:
           github.event.inputs.job == '01'
         run: |
           echo "▶ Rodando 01_performance_extract_points.sql"
-          bq query \
+          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
             --use_legacy_sql=false \
             --project_id=shopper-datalakehouse-qa \
             --location=southamerica-east1 \
@@ -90,7 +95,7 @@ jobs:
           github.event.inputs.job == '02'
         run: |
           echo "▶ Rodando 02_expected_points_tratada.sql"
-          bq query \
+          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
             --use_legacy_sql=false \
             --project_id=shopper-datalakehouse-qa \
             --location=southamerica-east1 \
@@ -106,7 +111,7 @@ jobs:
           github.event.inputs.job == '03'
         run: |
           echo "▶ Rodando 03_ranking_semanal.sql"
-          bq query \
+          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
             --use_legacy_sql=false \
             --project_id=shopper-datalakehouse-qa \
             --location=southamerica-east1 \
@@ -122,7 +127,7 @@ jobs:
           github.event.inputs.job == '04'
         run: |
           echo "▶ Rodando 04_performance_lideranca.sql"
-          bq query \
+          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
             --use_legacy_sql=false \
             --project_id=shopper-datalakehouse-qa \
             --location=southamerica-east1 \
@@ -138,7 +143,7 @@ jobs:
           github.event.inputs.job == '05'
         run: |
           echo "▶ Rodando 05_performance_nao_mediveis.sql"
-          bq query \
+          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
             --use_legacy_sql=false \
             --project_id=shopper-datalakehouse-qa \
             --location=southamerica-east1 \
@@ -154,7 +159,7 @@ jobs:
           github.event.inputs.job == '06'
         run: |
           echo "▶ Rodando 06_tabela_consolidada_ranking.sql"
-          bq query \
+          bq --access_token_file=${{ runner.temp }}/bq_token.txt query \
             --use_legacy_sql=false \
             --project_id=shopper-datalakehouse-qa \
             --location=southamerica-east1 \
