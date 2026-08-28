@@ -511,16 +511,19 @@ def _sql_mats(mats: list) -> str:
 
 
 def _desconto_to_mult(desconto_str) -> str:
-    """'-25%'→'0.75', '0%'→'0.0', float -0.5→'0.5'"""
+    """'20%' ou '-20%' → '0.8', '0%' → '0.0', float -0.5 ou 0.5 → '0.5'"""
     if desconto_str is None:
         return "1.0"
     s = str(desconto_str).strip()
     try:
         if "%" in s:
-            pct = float(s.replace("%", "").replace("+", ""))
-            mult = 1.0 + pct / 100.0
+            pct = abs(float(s.replace("%", "").strip()))
+            mult = 1.0 - pct / 100.0
         else:
-            mult = 1.0 + float(s)
+            f = float(s)
+            # valor em fração (ex: -0.2 ou 0.2) ou percentual (ex: 20)
+            pct = abs(f) if abs(f) <= 1.0 else abs(f) / 100.0
+            mult = 1.0 - pct
         return str(round(max(0.0, mult), 4))
     except ValueError:
         return "1.0"
@@ -707,7 +710,7 @@ def atualizar_sql_kpis(
             if not setor:
                 continue
             desconto = row.get("DESCONTO", "")
-            if not desconto or str(desconto).strip() in ("", "0%", "0"):
+            if not desconto or str(desconto).strip() == "":
                 continue
             mult = _desconto_to_mult(desconto)
             atrib = row.get("ATRIBUIÇÃO", "") or ""
@@ -782,7 +785,7 @@ def atualizar_sql_kpis(
             if not setor:
                 continue
             desconto = row.get("DESCONTO", "")
-            if not desconto or str(desconto).strip() in ("", "0%", "0"):
+            if not desconto or str(desconto).strip() == "":
                 continue
             atrib = row.get("ATRIBUIÇÃO", "") or ""
             turno = row.get("TURNO", "") or ""
