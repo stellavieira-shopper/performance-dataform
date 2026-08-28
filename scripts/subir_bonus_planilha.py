@@ -31,7 +31,7 @@ import gspread
 PROJECT_ID   = os.getenv("PROJECT_ID", "shopper-datalakehouse-qa")
 CREDENTIALS  = os.getenv("CREDENTIALS")
 TOKEN_PATH   = os.getenv("SHEETS_TOKEN_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "sheets_token.json")
-DRIVE_PERFORMANCE_FOLDER_ID = "16-DR4Yo_yNujhMzXWyDxwJ68s4f352cB"
+DRIVE_PERFORMANCE_FOLDER_ID = "1wz6cDH-WFbhb9Icf0NHG5gnGhDu_W2lM"
 
 DATASET = "Ranking_Performance"
 TABLE_OP  = f"{PROJECT_ID}.{DATASET}.Tabela_Base_Feedback_Operacional"
