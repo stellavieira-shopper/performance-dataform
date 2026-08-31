@@ -181,6 +181,18 @@ def main():
 
     print(f"Atualizados: {atualizados} | Inseridos: {inseridos}")
 
+    # Preenche CPF para registros novos (sem CPF)
+    if inseridos > 0:
+        client.query(f"""
+            UPDATE `{PROJECT_ID}.{BQ_TABLE}` c
+            SET c.cpf = du.dados, c.update_at = CURRENT_TIMESTAMP()
+            FROM `{PROJECT_ID}.Ranking_Performance.Dados Usuários` du
+            WHERE c.matricula = CAST(du.matricula AS STRING)
+              AND c.data_inicio_ranking = '{data_inicio}'
+              AND c.cpf IS NULL
+        """).result()
+        print("CPF preenchido a partir de Dados Usuários")
+
     # --- Resumo final ---
     r = list(client.query(f"""
         SELECT
