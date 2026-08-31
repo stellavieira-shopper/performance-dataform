@@ -125,5 +125,5 @@ jobs:
             WHERE data_inicio_ranking = '{data_inicio}'
           """
           row = list(client.query(sql, location="southamerica-east1").result())[0]
-          print(f"total={row.total} | total_a_pagar={row.total_a_pagar:.2f} | erros={row.erros}")
+          print(f"total={row.total} | total_a_pagar={(row.total_a_pagar or 0):.2f} | erros={row.erros}")
           EOF
