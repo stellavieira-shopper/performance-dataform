@@ -103,36 +103,53 @@ def main():
         print("Nenhum bônus encontrado para o período. Encerrando.")
         sys.exit(0)
 
-    # --- Busca registros atuais da carteira ---
+    # --- Busca registros existentes na carteira para esse período ---
     mats_quoted = ", ".join(f"'{m}'" for m in bonus_por_mat)
     rows_cart = list(client.query(f"""
-        SELECT matricula, bonificacao_atual, saldo
+        SELECT matricula, bonificacao_atual, saldo_pos_bonificacao
         FROM `{PROJECT_ID}.{BQ_TABLE}`
         WHERE data_inicio_ranking = '{data_inicio}'
           AND matricula IN ({mats_quoted})
     """).result())
 
+    encontrados = {str(r.matricula) for r in rows_cart}
+    nao_encontrados = [m for m in bonus_por_mat if m not in encontrados]
+
     print(f"Registros encontrados na carteira: {len(rows_cart)}")
-
-    nao_encontrados = [m for m in bonus_por_mat if m not in {str(r.matricula) for r in rows_cart}]
     if nao_encontrados:
-        print(f"Atenção — não encontrados na carteira: {nao_encontrados}")
+        print(f"Não encontrados — serão criados: {len(nao_encontrados)}")
 
-    # --- Atualiza cada matrícula ---
+    # --- Busca saldo anterior para quem não tem registro no período atual ---
+    saldos_anteriores: dict = {}
+    if nao_encontrados:
+        mats_novos = ", ".join(f"'{m}'" for m in nao_encontrados)
+        rows_saldo = list(client.query(f"""
+            SELECT matricula, CAST(saldo_pos_bonificacao AS NUMERIC) AS saldo
+            FROM `{PROJECT_ID}.{BQ_TABLE}`
+            WHERE data_inicio_ranking = (
+                SELECT MAX(data_inicio_ranking)
+                FROM `{PROJECT_ID}.{BQ_TABLE}`
+                WHERE data_inicio_ranking < '{data_inicio}'
+            )
+              AND matricula IN ({mats_novos})
+        """).result())
+        for r in rows_saldo:
+            saldos_anteriores[str(r.matricula)] = Decimal(str(r.saldo or "0"))
+
+    # --- Atualiza existentes ---
     atualizados = 0
     for row in rows_cart:
-        mat        = str(row.matricula)
-        bonus      = Decimal(str(bonus_por_mat[mat]))
-        nova_bonif = Decimal(str(row.bonificacao_atual)) + bonus
-        saldo      = Decimal(str(row.saldo))
-        liquido    = saldo + nova_bonif
-        novo_valor = max(Decimal("0"), liquido)
-        novo_saldo = min(Decimal("0"), liquido)
+        mat         = str(row.matricula)
+        bonus       = Decimal(str(bonus_por_mat[mat]))
+        bonif_atual = Decimal(str(row.bonificacao_atual or "0"))
+        saldo       = Decimal(str(row.saldo_pos_bonificacao or "0"))
+        liquido     = saldo + bonif_atual + bonus
+        novo_valor  = max(Decimal("0"), liquido)
+        novo_saldo  = min(Decimal("0"), liquido)
 
         client.query(f"""
             UPDATE `{PROJECT_ID}.{BQ_TABLE}`
-            SET bonificacao_atual      = NUMERIC '{nova_bonif - bonus}',
-                bonus_recompensa       = NUMERIC '{bonus}',
+            SET bonus_recompensa       = NUMERIC '{bonus}',
                 saldo_pos_bonificacao  = NUMERIC '{novo_saldo}',
                 valor_a_pagar          = NUMERIC '{novo_valor}',
                 update_at              = CURRENT_TIMESTAMP()
@@ -141,7 +158,28 @@ def main():
         """).result()
         atualizados += 1
 
-    print(f"\nAtualizados: {atualizados} registros")
+    # --- Insere novos ---
+    inseridos = 0
+    for mat in nao_encontrados:
+        bonus  = Decimal(str(bonus_por_mat[mat]))
+        saldo  = saldos_anteriores.get(mat, Decimal("0"))
+        liquido    = saldo + bonus
+        novo_valor = max(Decimal("0"), liquido)
+        novo_saldo = min(Decimal("0"), liquido)
+
+        client.query(f"""
+            INSERT INTO `{PROJECT_ID}.{BQ_TABLE}`
+              (matricula, bonificacao_atual, bonus_recompensa,
+               saldo_pos_bonificacao, valor_a_pagar,
+               data_inicio_ranking, report_at, update_at)
+            VALUES
+              ('{mat}', NUMERIC '0', NUMERIC '{bonus}',
+               NUMERIC '{novo_saldo}', NUMERIC '{novo_valor}',
+               '{data_inicio}', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+        """).result()
+        inseridos += 1
+
+    print(f"Atualizados: {atualizados} | Inseridos: {inseridos}")
 
     # --- Resumo final ---
     r = list(client.query(f"""
@@ -152,9 +190,10 @@ def main():
         WHERE data_inicio_ranking = '{data_inicio}'
     """).result())[0]
 
+    total_a_pagar = r.total_a_pagar or 0.0
     print(f"\nResumo final:")
     print(f"  Total registros: {r.total}")
-    print(f"  Total a pagar:   R$ {r.total_a_pagar:,.2f}")
+    print(f"  Total a pagar:   R$ {total_a_pagar:,.2f}")
 
 
 if __name__ == "__main__":
