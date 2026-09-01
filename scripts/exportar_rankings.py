@@ -129,10 +129,13 @@ def _fmt(v):
 
 def query_bq(data_inicio: date, query: str) -> tuple[list, list]:
     """Executa query no BQ e retorna (header, rows)."""
-    from google.oauth2 import service_account
+    from google.auth import load_credentials_from_file
     from google.cloud import bigquery
 
-    creds_bq = service_account.Credentials.from_service_account_file(CREDENTIALS)
+    key_file = CREDENTIALS or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    creds_bq, _ = load_credentials_from_file(
+        key_file, scopes=["https://www.googleapis.com/auth/bigquery"]
+    )
     bq = bigquery.Client(project=PROJECT_ID, credentials=creds_bq)
     result = bq.query(query).result()
     header = [f.name for f in result.schema]
