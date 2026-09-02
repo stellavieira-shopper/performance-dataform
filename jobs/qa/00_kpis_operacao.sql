@@ -153,6 +153,18 @@ BEGIN
       WHEN MATRICULA IN ('18550') THEN 1.0
       -- [/AUTO:ind-zerados-setor-neut]
 
+      -- Campinas nunca foi formalmente definido como FC no sistema — hoje so
+      -- existe como valor solto de AREA/SETOR, mas o campo FC de quem trabalha
+      -- la vem cadastrado como 'FC1' no Organograma. Sem esta linha, qualquer
+      -- desconto setorial de FC1 (bloco AUTO abaixo, reescrito toda semana)
+      -- atinge Campinas por engano, mesmo Campinas sendo operacionalmente
+      -- separado do FC1. Bug real encontrado em 2026-09: mat 11428, 15488,
+      -- 5509 penalizadas em -10% pelo desconto de EXPEDIÇÃO/FC1/MANHÃ sem
+      -- terem nenhuma relacao com a operacao que gerou aquele desconto.
+      -- Remover esta linha somente quando Campinas virar um FC formal E as
+      -- regras abaixo passarem a excluir AREA='CAMPINAS' explicitamente.
+      WHEN AREA = 'CAMPINAS' THEN 1.0
+
       -- ── Setoriais — ATUALIZAR TODA SEMANA ──
       -- [AUTO:setoriais-mult]
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC1' THEN 0.9
@@ -321,6 +333,11 @@ BEGIN
       WHEN MATRICULA IN ('9758', '17251', '19116', '13879', '18445', '16436')
       THEN 'Você recebeu uma detratora pela atividade de inventário de Gestão de Estoque nesta semana devido ao baixo desempenho nas contagens. Precisamos reduzir os erros para conseguir pontuar positivamente por essa atividade e ficar mais próximo da bonificação.'
       -- [/AUTO:ge-obs]
+
+      -- Espelha a mesma protecao de Campinas do CASE de MULT_SETOR acima —
+      -- sem mensagem de desconto setorial pra quem esta em AREA='CAMPINAS',
+      -- ja que o multiplicador correspondente fica travado em 1.0 (sem efeito).
+      WHEN AREA = 'CAMPINAS' THEN NULL
 
       -- 7. KPIs Setoriais — ATUALIZAR TODA SEMANA
       -- [AUTO:setoriais-obs]
