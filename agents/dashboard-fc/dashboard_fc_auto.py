@@ -535,6 +535,25 @@ def _setor_to_sql_cond(setor: str, atribuicao: str, turno: str, fc: str) -> str:
     t = (turno or "").upper().strip()
     parts = []
 
+    # Caso especial: alguem digitou "Campinas" como SETOR na aba Visão FC1/
+    # FC2/FC3 (não precisa de aba própria). Campinas não é um FC formal no
+    # sistema — quem trabalha lá vem cadastrado com FC='FC1' no Organograma,
+    # então identificar por FC='{fc}' pegaria só quem também está nesse FC
+    # por coincidência, ou (o bug original) uma regra de FC1/FC3 genérica
+    # pegaria essas pessoas mesmo sem essa linha existir. Aqui identifica só
+    # por AREA — nunca junto com FC, que é exatamente o pedido: aplicar o
+    # desconto para os colaboradores de Campinas, e não do FC.
+    if s == "CAMPINAS":
+        parts.append("AREA = 'CAMPINAS'")
+        if a and a not in ("TODAS", "TODOS", ""):
+            parts.append(f"ATRIBUICAO_ORIGINAL LIKE '%{a}%'")
+        if t and t not in ("TODOS", "TODAS", ""):
+            turnos = [x.strip() for x in t.replace("/", ",").split(",")]
+            turno_list = ", ".join(f"'{tu}'" for tu in turnos)
+            cond = f"TURNO IN ({turno_list})" if len(turnos) > 1 else f"TURNO = {turno_list}"
+            parts.append(cond)
+        return " AND ".join(parts)
+
     if "PRÉ" in s or "PRE" in s:
         if "EXPED" in s:
             parts.append("(SETOR_ORIGINAL LIKE '%PRÉ%EXPED%' OR SETOR_ORIGINAL LIKE '%PRE%EXPED%')")
@@ -703,6 +722,14 @@ def atualizar_sql_kpis(
     )
 
     # ── 5. setoriais-mult (MULT_SETOR, por setor/FC) ──────────────────────────
+    # Campinas não tem aba própria — alguem digita "Campinas" como SETOR
+    # dentro de qualquer Visão FC1/FC2/FC3. Essas linhas (campinas_lines) vao
+    # SEMPRE primeiro, seguidas de uma rede de segurança que sempre é gerada
+    # (protege quem for de Campinas e não tiver linha especifica nesta
+    # semana), e só depois as linhas normais de FC1/FC2/FC3. Ordem importa:
+    # um CASE para na primeira condição que bate. Ver comentário completo em
+    # 00_kpis_operacao.sql, dentro do bloco [AUTO:setoriais-mult].
+    campinas_lines = []
     setor_mult_lines = []
     for fc, visao in visao_por_fc.items():
         for row in visao:
@@ -716,11 +743,13 @@ def atualizar_sql_kpis(
             atrib = row.get("ATRIBUIÇÃO", "") or ""
             turno = row.get("TURNO", "") or ""
             cond = _setor_to_sql_cond(setor, atrib, turno, fc)
-            setor_mult_lines.append(f"WHEN {cond} THEN {mult}")
-    sql = _replace_sql_section(
-        sql, "setoriais-mult",
-        "\n".join(setor_mult_lines) + "\n" if setor_mult_lines else "",
-    )
+            linha = f"WHEN {cond} THEN {mult}"
+            if setor.strip().upper() == "CAMPINAS":
+                campinas_lines.append(linha)
+            else:
+                setor_mult_lines.append(linha)
+    todas_mult_lines = campinas_lines + ["WHEN AREA = 'CAMPINAS' THEN 1.0"] + setor_mult_lines
+    sql = _replace_sql_section(sql, "setoriais-mult", "\n".join(todas_mult_lines) + "\n")
 
     # ── 6. ind-zerados-obs (OBSERVACAO_KPI — KPIs Individuais 0%) ────────────
     ind_obs_lines = []
@@ -778,6 +807,9 @@ def atualizar_sql_kpis(
     )
 
     # ── 9. setoriais-obs ──────────────────────────────────────────────────────
+    # Mesma separação/ordem da seção 5: campinas_obs_lines primeiro, depois a
+    # rede de segurança (sempre gerada), depois FC1/FC2/FC3.
+    campinas_obs_lines = []
     setor_obs_lines = []
     for fc, visao in visao_por_fc.items():
         for row in visao:
@@ -799,13 +831,13 @@ def atualizar_sql_kpis(
                     msg = m.get("mensagem", "")
                     break
             if msg:
-                setor_obs_lines.append(
-                    f"WHEN {cond}\n  THEN '{_sql_str(msg)}'"
-                )
-    sql = _replace_sql_section(
-        sql, "setoriais-obs",
-        "\n".join(setor_obs_lines) + "\n" if setor_obs_lines else "",
-    )
+                linha = f"WHEN {cond}\n  THEN '{_sql_str(msg)}'"
+                if setor.strip().upper() == "CAMPINAS":
+                    campinas_obs_lines.append(linha)
+                else:
+                    setor_obs_lines.append(linha)
+    todas_obs_lines = campinas_obs_lines + ["WHEN AREA = 'CAMPINAS' THEN NULL"] + setor_obs_lines
+    sql = _replace_sql_section(sql, "setoriais-obs", "\n".join(todas_obs_lines) + "\n")
 
     with open(sql_path, "w", encoding="utf-8") as f:
         f.write(sql)
