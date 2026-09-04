@@ -13,12 +13,18 @@ CREATE OR REPLACE EXTERNAL TABLE `shopper-performance-prod.operacao.src_pesos_tu
   FC3_TARDE          FLOAT64,
   FC3_NOITE          FLOAT64,
   DATA_INICIAL       DATE,
-  DATA_FINAL         DATE
+  DATA_FINAL         DATE,
+  -- FC4 foi acrescentado na planilha DEPOIS das colunas de data (colunas O, P, Q).
+  -- A external table do Sheets mapeia por POSICAO FISICA, entao estes campos
+  -- precisam ficar aqui no fim, e nao junto do bloco de FC3.
+  FC4_MANHA          FLOAT64,
+  FC4_TARDE          FLOAT64,
+  FC4_NOITE          FLOAT64
 )
 OPTIONS (
   description  = 'Pesos por turno e FC para cada métrica. External table do Google Sheets.',
   format       = 'GOOGLE_SHEETS',
   uris         = ['https://docs.google.com/spreadsheets/d/1R-CpFzAQu3Hn69v4Q3SO6d7pH3m3La0uWDHqNLSJjAo/edit?gid=1444521241#gid=1444521241'],
-  sheet_range  = 'pesos_turno!A2:N',
+  sheet_range  = 'pesos_turno!A2:Q',
   skip_leading_rows = 0
 );
