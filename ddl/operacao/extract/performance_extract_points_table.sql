@@ -485,8 +485,7 @@ pesos_turno_cache AS (
     UPPER(TRIM(METRIC_DESCRIPTION)) AS metric_key,
     FC1_MANHA, FC1_TARDE, FC1_NOITE,
     FC2_MANHA, FC2_TARDE, FC2_NOITE, FC2_INTERMEDIARIO,
-    FC3_MANHA, FC3_TARDE, FC3_NOITE,
-    FC4_MANHA, FC4_TARDE, FC4_NOITE
+    FC3_MANHA, FC3_TARDE, FC3_NOITE
   FROM `shopper-performance-prod.operacao.src_pesos_turno`
   QUALIFY ROW_NUMBER() OVER (PARTITION BY UPPER(TRIM(METRIC_DESCRIPTION)) ORDER BY DATA_INICIAL DESC) = 1
 ),
@@ -530,9 +529,6 @@ SELECT
           WHEN org.fc='FC3' AND org.turno_principal='MANHÃ'            THEN pt.FC3_MANHA
           WHEN org.fc='FC3' AND org.turno_principal='TARDE'            THEN pt.FC3_TARDE
           WHEN org.fc='FC3' AND org.turno_principal='NOITE'            THEN pt.FC3_NOITE
-          WHEN org.fc='FC4' AND org.turno_principal='MANHÃ'            THEN pt.FC4_MANHA
-          WHEN org.fc='FC4' AND org.turno_principal='TARDE'            THEN pt.FC4_TARDE
-          WHEN org.fc='FC4' AND org.turno_principal='NOITE'            THEN pt.FC4_NOITE
         END, 1.0)
     * CASE WHEN eu.metric_type='DETRATORA' THEN -1.0 ELSE 1.0 END
   AS FLOAT64) AS pontos_ponderados,
