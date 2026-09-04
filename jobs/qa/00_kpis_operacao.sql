@@ -154,7 +154,20 @@ BEGIN
       -- [/AUTO:ind-zerados-setor-neut]
 
       -- ── Setoriais — ATUALIZAR TODA SEMANA ──
+      -- Este bloco e' reescrito por inteiro toda semana pelo dashboard_fc_auto.py.
+      -- Ele SEMPRE gera, nesta ordem: (1) qualquer linha de "Visão FC1/FC2/FC3"
+      -- cujo SETOR digitado seja "Campinas" — identifica por AREA = 'CAMPINAS'
+      -- em vez de FC, e vem primeiro; (2) a linha de segurança logo abaixo
+      -- ("WHEN AREA = 'CAMPINAS' THEN 1.0") — cai aqui quem for de Campinas e
+      -- NÃO tiver uma linha especifica acima nesta semana, então nunca é pego
+      -- por engano pelas regras (3) de FC1/FC2/FC3 que vem depois, que não
+      -- verificam AREA. Bug real que motivou isto (2026-09): mat 11428,
+      -- 15488, 5509 penalizadas em -10% pelo desconto de EXPEDIÇÃO/FC1/MANHÃ
+      -- sem nenhuma relacao com a operacao do FC1. A ordem importa: um CASE
+      -- para na primeira condição que bate — Campinas especifico tem que vir
+      -- antes da rede de segurança, que tem que vir antes de FC1/FC2/FC3.
       -- [AUTO:setoriais-mult]
+      WHEN AREA = 'CAMPINAS' THEN 1.0
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC1' THEN 0.9
       WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC1' AND TURNO = 'MANHÃ' THEN 0.9
       WHEN (SETOR_ORIGINAL LIKE '%PRÉ%EXPED%' OR SETOR_ORIGINAL LIKE '%PRE%EXPED%') AND AREA = 'MERCEARIA' AND FC = 'FC1' THEN 0.9
@@ -323,7 +336,11 @@ BEGIN
       -- [/AUTO:ge-obs]
 
       -- 7. KPIs Setoriais — ATUALIZAR TODA SEMANA
+      -- Mesma mecânica/ordem do bloco [AUTO:setoriais-mult] (ver comentário
+      -- lá): Campinas especifico primeiro, depois a rede de segurança,
+      -- depois FC1/FC2/FC3.
       -- [AUTO:setoriais-obs]
+      WHEN AREA = 'CAMPINAS' THEN NULL
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC1'
       THEN '-10% na Bonificação. O indicador de completos fresh ficou fora da meta, impactado pelo alto volume de transferências que ocorreram durante a semana. Essa movimentação de estoque comprometeu a disponibilidade de produtos para completar os pedidos.'
       WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC1' AND TURNO = 'MANHÃ'
