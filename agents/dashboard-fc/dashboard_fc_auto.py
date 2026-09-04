@@ -102,15 +102,44 @@ def ler_resumo_fc(wb, fc: str) -> list[dict]:
 
 
 def ler_visao_fc(wb, fc: str) -> list[dict]:
+    """Le a tabela de configuracao de descontos da aba 'Visão FCx'.
+
+    ATENCAO — a aba tem DUAS tabelas lado a lado:
+      - colunas A-G  : tabela de KPIs (KPI, Meta, Semana Anterior, Delta...)
+      - colunas K-P  : tabela de configuracao (SETOR, ATRIBUICAO, TURNO,
+                       MATRICULA, DESCONTO, IDEIA CENTRAL)
+
+    O filtro precisa olhar a coluna SETOR (da tabela da DIREITA). A versao
+    anterior usava `if row[0]`, que e a coluna A — da tabela da ESQUERDA, sem
+    relacao nenhuma com a configuracao de desconto.
+
+    Como as duas tabelas tem quantidades de linhas diferentes, sobra celula
+    vazia na coluna A justamente em linhas que TEM desconto configurado. Essas
+    linhas eram descartadas em silencio, e o desconto simplesmente sumia do
+    SQL gerado — sem erro, sem aviso.
+
+    Casos reais observados na geracao de 2026-09-04:
+      - Visão FC1, RECEBIMENTO MERCEARIA TARDE (-20%)  -> sumiu
+      - Visão FC3, REPOSIÇÃO MERCEARIA MANHÃ  (-15%)   -> sumiu
+    """
     ws = wb[f"Visão {fc}"]
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         return []
     header = rows[0]
+
+    idx_setor = next(
+        (i for i, h in enumerate(header) if str(h or "").strip().upper() == "SETOR"),
+        None,
+    )
+    if idx_setor is None:
+        print(f"AVISO: Visão {fc} — coluna SETOR nao encontrada no cabecalho; nenhuma linha lida")
+        return []
+
     return [
         dict(zip(header, row))
         for row in rows[1:]
-        if row[0]  # SETOR preenchido
+        if len(row) > idx_setor and row[idx_setor]
     ]
 
 
