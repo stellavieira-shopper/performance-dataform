@@ -1,0 +1,83 @@
+name: Intraday — Ciclo Fechado (Totem)
+
+# Atualiza a Tabela_Intraday_Performance do ultimo ciclo JA FECHADO.
+#
+# Por que existe: a Scheduled Query do BigQuery so processa o ciclo corrente
+# (da ultima sexta ate hoje). Quando o ciclo fecha, a linha congela. Se o
+# extract_points for reprocessado depois disso — correcao de metrica, backfill,
+# exclusao de atividade — o Totem e o Intraday seguem mostrando o numero velho.
+# Este workflow roda o mesmo MERGE apontado para o ciclo fechado.
+#
+# Rodar DEPOIS do 01 (extract points) e, se o ranking mudou, tambem depois do 06.
+#
+# Secrets necessarios (mesmos do ranking-qa):
+#   BQ_DRIVE_CLIENT_ID / BQ_DRIVE_CLIENT_SECRET / BQ_DRIVE_REFRESH_TOKEN
+
+on:
+  workflow_dispatch:
+    inputs:
+      data_inicio:
+        description: 'Inicio do ciclo (AAAA-MM-DD). Vazio = ultimo ciclo fechado, calculado automaticamente.'
+        required: false
+        default: ''
+
+jobs:
+  intraday:
+    name: Intraday — Ciclo Fechado
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      BQ_DRIVE_CLIENT_ID: ${{ secrets.BQ_DRIVE_CLIENT_ID }}
+      BQ_DRIVE_CLIENT_SECRET: ${{ secrets.BQ_DRIVE_CLIENT_SECRET }}
+      BQ_DRIVE_REFRESH_TOKEN: ${{ secrets.BQ_DRIVE_REFRESH_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências
+        run: |
+          pip install --quiet \
+            google-auth \
+            google-cloud-bigquery \
+            db-dtypes
+
+      - name: Fixar ciclo, se informado
+        if: ${{ github.event.inputs.data_inicio != '' }}
+        env:
+          DATA_INICIO: ${{ github.event.inputs.data_inicio }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$DATA_INICIO" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+            echo "ERRO: data_inicio deve estar no formato AAAA-MM-DD (recebido: $DATA_INICIO)"
+            exit 1
+          fi
+          python - <<'PY'
+          import os, re, io
+          p = "jobs/qa/14_intraday_ciclo_fechado.sql"
+          d = os.environ["DATA_INICIO"]
+          src = io.open(p, encoding="utf-8").read()
+          novo, n = re.subn(
+              r"DECLARE v_inicio DATE DEFAULT .*?;",
+              f"DECLARE v_inicio DATE DEFAULT DATE '{d}';",
+              src, count=1, flags=re.S,
+          )
+          if n != 1:
+              raise SystemExit(f"ERRO: nao encontrei o DECLARE de v_inicio em {p}")
+          io.open(p, "w", encoding="utf-8", newline="\n").write(novo)
+          print(f"Ciclo fixado em {d}")
+          PY
+
+      - name: Mostrar ciclo que sera processado
+        run: sed -n '19,25p' jobs/qa/14_intraday_ciclo_fechado.sql
+
+      - name: "14 · Intraday do ciclo fechado"
+        run: |
+          echo "▶ Rodando 14_intraday_ciclo_fechado.sql"
+          python scripts/run_bq_query.py jobs/qa/14_intraday_ciclo_fechado.sql
