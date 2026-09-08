@@ -1,5 +1,5 @@
 DELETE FROM `shopper-datalakehouse-qa.Ranking_Performance.performance_extract_points_table`
-WHERE reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 8 DAY);
+WHERE reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 10 DAY);
 
 INSERT INTO `shopper-datalakehouse-qa.Ranking_Performance.performance_extract_points_table`
 
@@ -527,7 +527,7 @@ LEFT JOIN pesos_turno_cache AS pt ON UPPER(TRIM(
     ELSE eu.metric_description
   END
 )) = pt.metric_key
-WHERE eu.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 8 DAY)
+WHERE eu.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 10 DAY)
   -- Alta de temperatura na semana de 28/08 a 03/09/2026: os chocolates foram
   -- marcados como faltante em massa nos pedidos do FC2. As inclusoes geradas
   -- por essa decisao nao devem pontuar. REMOVER quando o ciclo sair da janela.
