@@ -2,10 +2,33 @@ config {
   type: "view",
   schema: "Ranking_Performance",
   name: "curated_fresh_picking",
-  description: "Picking fresh em FC1/FC2/FC3: itens pickados por colaborador no estágio 21 (FRESH - EXECUTANDO CONFERENCIA), conveyor_type_id = F."
+  description: "Picking fresh e auditoria fresh em FC1/FC2/FC3: stage 21 (picking), stage 23 (check base para audit), stage 25 (fiscal audit)."
 }
 
-WITH Esteira_Picking AS (
+WITH Ja_Na_Raw_Audit_Fresh AS (
+  SELECT DISTINCT JSON_VALUE(details, '$.order_code') AS order_code
+  FROM `shopper-datalakehouse-prod.performance.raw_measures_n2`
+  WHERE metric_code = 'FRESH_CHECK_AUDIT'
+),
+
+Fiscal_Fresh AS (
+  SELECT kdabra_order_id,
+    COALESCE(
+      MIN(IF(conveyor_stage_id = 23, executed_by, NULL)),
+      MIN(IF(conveyor_stage_id = 25, executed_by, NULL))
+    ) AS executed_by_fiscal,
+    MIN(IF(conveyor_stage_id = 23, started_stage_at, NULL)) AS start_stage23,
+    MIN(IF(conveyor_stage_id = 25, started_stage_at, NULL)) AS start_stage25,
+    COALESCE(
+      MAX(IF(conveyor_stage_id = 23, end_stage_at, NULL)),
+      MAX(IF(conveyor_stage_id = 25, end_stage_at, NULL))
+    ) AS activity_end_fiscal
+  FROM `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_esteira_n2`
+  WHERE conveyor_stage_id IN (23, 25)
+  GROUP BY kdabra_order_id
+),
+
+Esteira_Picking AS (
   SELECT
     kdabra_order_id,
     MIN(started_stage_at)  AS inicio_picking,
@@ -53,3 +76,33 @@ CROSS JOIN (
 ) AS pm
 WHERE p.fulfillment_center_id IN (2, 3, 7)
 GROUP BY 1, 2, 3, 4, 5, 6, 7, pm.score_factor
+
+UNION ALL
+
+-- Auditoria fresh: fiscal que executa stage 23 ou 25 após o picking
+SELECT
+  SAFE_CAST(u.registration_number AS INT64)  AS cod_matricula,
+  u.user_name,
+  p.order_code                               AS cod_pedido,
+  p.fulfillment_center_id,
+  CAST(ep.shift_date AS DATE)                AS reference_date,
+  COALESCE(
+    IF(f.start_stage23 > ep.inicio_picking, f.start_stage23, NULL),
+    IF(f.start_stage25 > ep.inicio_picking, f.start_stage25, NULL)
+  )                                          AS activity_start,
+  f.activity_end_fiscal                      AS activity_end,
+  1                                          AS qty,
+  1.0                                        AS points,
+  'AUDITORIA DE CONFERENCIA FRESH'           AS metric_description,
+  'PROMOTORA'                                AS metric_type
+FROM Esteira_Picking AS ep
+INNER JOIN Fiscal_Fresh AS f ON ep.kdabra_order_id = f.kdabra_order_id
+LEFT JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_n2` AS p
+  ON ep.kdabra_order_id = p.kdabra_order_id
+LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS u
+  ON CAST(f.executed_by_fiscal AS INT64) = u.user_id
+WHERE f.executed_by_fiscal IS NOT NULL
+  AND p.fulfillment_center_id IN (2, 3, 7)
+  AND p.order_code NOT LIKE '%N'
+  AND p.order_code NOT LIKE 'MK%'
+  AND p.order_code NOT IN (SELECT order_code FROM Ja_Na_Raw_Audit_Fresh)
