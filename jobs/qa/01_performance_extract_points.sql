@@ -1,4 +1,4 @@
-﻿DELETE FROM `shopper-datalakehouse-qa.Ranking_Performance.performance_extract_points_table`
+DELETE FROM `shopper-datalakehouse-qa.Ranking_Performance.performance_extract_points_table`
 WHERE reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 8 DAY);
 
 INSERT INTO `shopper-datalakehouse-qa.Ranking_Performance.performance_extract_points_table`
