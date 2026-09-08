@@ -368,7 +368,6 @@ def upload_planilha_pagamento(data_inicio: date, excluir_setores: list[str] | No
     Retorna o link da planilha ou None se não encontrar.
     excluir_setores: lista de setor_principal (case-insensitive) a excluir do pagamento.
     """
-    from google.oauth2 import service_account
     from google.cloud import bigquery
     from google.oauth2.credentials import Credentials
     from google.auth.transport.requests import Request
@@ -376,7 +375,7 @@ def upload_planilha_pagamento(data_inicio: date, excluir_setores: list[str] | No
     import gspread
 
     # Lê do BQ — CPF já preenchido pelo UPDATE feito em gravar_bq
-    creds_bq = service_account.Credentials.from_service_account_file(CREDENTIALS)
+    creds_bq = _bq_credentials()
     bq = bigquery.Client(project=PROJECT_ID, credentials=creds_bq)
 
     if excluir_setores:
@@ -556,10 +555,8 @@ def main():
 
     # 3b. Bonificações extras avulsas (--extra-bonif)
     if args.extra_bonif:
-        from google.oauth2 import service_account
         from google.cloud import bigquery as _bq
-        _creds = service_account.Credentials.from_service_account_file(CREDENTIALS)
-        _client = _bq.Client(project=PROJECT_ID, credentials=_creds)
+        _client = _bq.Client(project=PROJECT_ID, credentials=_bq_credentials())
         extras: dict[str, Decimal] = {}
         for par in args.extra_bonif.split(","):
             mat, val = par.strip().split(":")
