@@ -295,6 +295,30 @@ Retorne APENAS o texto da mensagem."""
 
 # ── Escrita na planilha ───────────────────────────────────────────────────────
 
+def ler_mensagens_planilha(creds, spreadsheet_id: str, data: str) -> list[dict]:
+    """Lê a aba 'Mensagens' filtrando pela data (DD/MM/AAAA)."""
+    gc = gspread.authorize(creds)
+    sh = gc.open_by_key(spreadsheet_id)
+    ws = sh.worksheet("Mensagens")
+    rows = ws.get_all_values()
+    if not rows:
+        return []
+    result = []
+    for row in rows[1:]:  # pula cabeçalho
+        if len(row) < 9:
+            continue
+        row_data, fc, setor, atrib, turno, mat, desconto, ideia, mensagem = row[:9]
+        if row_data.strip() != data.strip():
+            continue
+        result.append({
+            "fc": fc, "setor": setor, "atribuicao": atrib, "turno": turno,
+            "matricula": mat, "desconto": desconto, "ideia_central": ideia,
+            "mensagem": mensagem,
+        })
+    print(f"Aba Mensagens: {len(result)} entradas para {data}")
+    return result
+
+
 def escrever_mensagens(creds, spreadsheet_id: str, data: str, mensagens: list[dict]):
     gc = gspread.authorize(creds)
     sh = gc.open_by_key(spreadsheet_id)
@@ -953,6 +977,8 @@ def main():
     parser.add_argument("--data", required=False, help="Data no formato DD/MM/AAAA")
     parser.add_argument("--output-dir", default=".", help="Diretório de saída dos PDFs")
     parser.add_argument("--sql-path", required=False, help="Caminho para 00_kpis_operacao.sql a atualizar")
+    parser.add_argument("--only-sql", action="store_true",
+                        help="Apenas atualiza o SQL a partir das mensagens já salvas na planilha (sem gerar novas mensagens via IA)")
     args = parser.parse_args()
 
     if args.data:
@@ -966,9 +992,65 @@ def main():
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
 
+    creds = get_credentials()
+
+    if args.only_sql:
+        if not args.sql_path:
+            print("ERRO: --only-sql requer --sql-path", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"Modo --only-sql: lendo mensagens da planilha para {data}")
+        mensagens_finais = ler_mensagens_planilha(creds, SPREADSHEET_ID_FC, data)
+        if not mensagens_finais:
+            print("Nenhuma mensagem encontrada na aba 'Mensagens' para essa data. Abortando.")
+            sys.exit(1)
+
+        print("Baixando planilha Dashboard FC (kpis_ind, vistoria, fiscais)...")
+        wb_fc = download_xlsx(SPREADSHEET_ID_FC, creds)
+
+        fiscais = ler_fiscais_picking(wb_fc, data)
+        print(f"Fiscais de Picking: {len(fiscais)} entradas para o período")
+
+        vistoria = ler_vistoria_semana(wb_fc)
+        detratores = ler_kpis_individuais(wb_fc, data)
+
+        # Reconstrói visao_por_fc a partir das mensagens setoriais já salvas
+        visao_por_fc: dict = {"FC1": [], "FC2": [], "FC3": []}
+        for m in mensagens_finais:
+            fc = m.get("fc", "")
+            if fc not in visao_por_fc or m.get("setor") == "GESTÃO DE ESTOQUE":
+                continue
+            visao_por_fc[fc].append({
+                "SETOR": m.get("setor", ""),
+                "ATRIBUIÇÃO": m.get("atribuicao", ""),
+                "TURNO": m.get("turno", ""),
+                "MATRÍCULA": m.get("matricula", ""),
+                "DESCONTO": m.get("desconto", ""),
+                "IDEIA CENTRAL": m.get("ideia_central", ""),
+            })
+
+        ge_com_msg = [
+            {"matricula": m.get("matricula"), "mensagem": m.get("mensagem")}
+            for m in mensagens_finais
+            if m.get("setor") == "GESTÃO DE ESTOQUE"
+        ]
+
+        atualizar_sql_kpis(
+            sql_path=args.sql_path,
+            data=data,
+            kpis_ind=detratores,
+            vistoria=vistoria,
+            fiscais=fiscais,
+            visao_por_fc=visao_por_fc,
+            mensagens=mensagens_finais,
+            ge_rows=ge_com_msg,
+        )
+        print(f"\nConcluído (--only-sql). SQL atualizado com {len(mensagens_finais)} mensagens.")
+        return
+
+    # ── Fluxo completo ────────────────────────────────────────────────────────
     print(f"Iniciando geração de mensagens FC — {data}")
 
-    creds = get_credentials()
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     gemini_client = genai.GenerativeModel("gemini-2.5-pro")
 

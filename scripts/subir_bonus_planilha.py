@@ -1,221 +1,132 @@
 """
-Lê os dados de bônus recompensa do BQ e cria/atualiza a planilha
-"Bonus Recompensa DD/MM a DD/MM" na pasta Performance do Drive.
-
+Sobe planilha [Bonus Recompensa][YYYY][Semana XX] no Drive com CPF + valor.
 Uso:
-  python subir_bonus_planilha.py                      # período atual automático
-  python subir_bonus_planilha.py --inicio 2026-05-08  # período específico
+  python subir_bonus_planilha.py --inicio 2026-08-21
 """
 import argparse
-import logging
 import os
 import sys
-import io
-import time
 from datetime import date, timedelta
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-
 from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
-from google.cloud import bigquery
-from google.auth import load_credentials_from_file
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-import gspread
+load_dotenv()
 
-PROJECT_ID   = os.getenv("PROJECT_ID", "shopper-datalakehouse-qa")
-CREDENTIALS  = os.getenv("CREDENTIALS")
-TOKEN_PATH   = os.getenv("SHEETS_TOKEN_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "sheets_token.json")
-DRIVE_PERFORMANCE_FOLDER_ID = "1wz6cDH-WFbhb9Icf0NHG5gnGhDu_W2lM"
-
-DATASET = "Ranking_Performance"
-TABLE_OP  = f"{PROJECT_ID}.{DATASET}.Tabela_Base_Feedback_Operacional"
-TABLE_FIS = f"{PROJECT_ID}.{DATASET}.Tabela_Base_Feedback_Fiscais"
-TABLE_SUP = f"{PROJECT_ID}.{DATASET}.Tabela_Base_Feedback_Supervisores"
+PROJECT_ID  = os.environ["PROJECT_ID"]
+CREDENTIALS = os.environ.get("CREDENTIALS") or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+TOKEN_PATH  = os.environ.get("SHEETS_TOKEN_PATH") or os.environ.get("TOKEN_PATH")
+FOLDER_ID   = os.environ.get("DRIVE_PAGAMENTO_FOLDER_ID", "1wz6cDH-WFbhb9Icf0NHG5gnGhDu_W2lM")
 
 
-def periodo_atual() -> tuple:
+def _ultima_semana_fechada():
     hoje = date.today()
-    dow = hoje.weekday()
-    sexta = hoje - timedelta(days=(dow - 4) % 7)
-    quinta = sexta + timedelta(days=6)
-    return sexta, quinta
-
-
-def get_drive_clients():
-    creds = Credentials.from_authorized_user_file(TOKEN_PATH, scopes=[
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive.file",
-        "https://www.googleapis.com/auth/drive.readonly",
-    ])
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-    drive = build("drive", "v3", credentials=creds)
-    gc    = gspread.authorize(creds)
-    return drive, gc
-
-
-def get_bq_client():
-    key_file = CREDENTIALS or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if key_file:
-        creds, _ = load_credentials_from_file(
-            key_file, scopes=["https://www.googleapis.com/auth/bigquery"]
-        )
-        return bigquery.Client(project=PROJECT_ID, credentials=creds)
-    return bigquery.Client(project=PROJECT_ID)
-
-
-def buscar_pasta_semana(drive, data_inicio: date, data_fim: date) -> str:
-    """Localiza a pasta da semana no Drive.
-
-    Tenta vários padrões de nome:
-      - 'Performance DD/MM a DD/MM'  (formato antigo)
-      - 'Semana NN'                  (formato com número ISO)
-      - dia do início e dia do fim presentes no nome (ex: 'Semana 32 - 07-13/ago')
-    """
-    semana_iso = data_inicio.isocalendar()[1]
-    ini_fmt = f"{data_inicio.day:02d}/{data_inicio.month:02d}"
-    fim_fmt = f"{data_fim.day:02d}/{data_fim.month:02d}"
-    ini_dia = f"{data_inicio.day:02d}"
-    fim_dia = f"{data_fim.day:02d}"
-
-    res = drive.files().list(
-        q=(
-            f"'{DRIVE_PERFORMANCE_FOLDER_ID}' in parents "
-            f"and mimeType='application/vnd.google-apps.folder' "
-            f"and trashed=false"
-        ),
-        fields="files(id,name)"
-    ).execute()
-
-    candidatos = res.get("files", [])
-
-    # 1) formato exato DD/MM
-    for f in candidatos:
-        if ini_fmt in f["name"] and fim_fmt in f["name"]:
-            logging.info(f"Pasta encontrada (DD/MM): {f['name']} ({f['id']})")
-            return f["id"]
-
-    # 2) número da semana ISO
-    for f in candidatos:
-        nome = f["name"]
-        if f"Semana {semana_iso}" in nome or f"Semana {semana_iso:02d}" in nome:
-            logging.info(f"Pasta encontrada (semana ISO {semana_iso}): {nome} ({f['id']})")
-            return f["id"]
-
-    # 3) dia de início e dia de fim presentes no nome (ex: '07-13/ago')
-    for f in candidatos:
-        nome = f["name"]
-        if ini_dia in nome and fim_dia in nome:
-            logging.info(f"Pasta encontrada (dias {ini_dia}/{fim_dia}): {nome} ({f['id']})")
-            return f["id"]
-
-    logging.error(
-        f"Pasta da semana {semana_iso} ({data_inicio} a {data_fim}) não encontrada. "
-        f"Pastas disponíveis: {[f['name'] for f in candidatos]}"
-    )
-    sys.exit(1)
-
-
-def criar_ou_abrir_planilha(drive, gc, nome: str, folder_id: str):
-    res = drive.files().list(
-        q=(
-            f"name='{nome}' and '{folder_id}' in parents "
-            f"and mimeType='application/vnd.google-apps.spreadsheet' "
-            f"and trashed=false"
-        ),
-        fields="files(id,name)"
-    ).execute()
-
-    if res["files"]:
-        sid = res["files"][0]["id"]
-        logging.info(f"Planilha já existe: '{nome}' ({sid}) — sobrescrevendo")
-        sh = gc.open_by_key(sid)
-        ws = sh.worksheets()[0]
-        ws.clear()
-        return ws, sid
-
-    meta = {
-        "name": nome,
-        "mimeType": "application/vnd.google-apps.spreadsheet",
-        "parents": [folder_id],
-    }
-    f = drive.files().create(body=meta, fields="id").execute()
-    logging.info(f"Planilha criada: '{nome}' ({f['id']})")
-    sh = gc.open_by_key(f["id"])
-    return sh.worksheets()[0], f["id"]
-
-
-def buscar_bonus(bq, data_inicio: date) -> list:
-    """Retorna lista de (cpf, valor_bonus) para o período, lida direto da carteira_operação."""
-    di = data_inicio.isoformat()
-    sql = f"""
-    SELECT
-      LPAD(CAST(cpf AS STRING), 11, '0') AS cpf,
-      CAST(bonus_recompensa AS FLOAT64)  AS valor
-    FROM `{PROJECT_ID}.Ranking_Performance.carteira_operação`
-    WHERE data_inicio_ranking = '{di}'
-      AND CAST(bonus_recompensa AS FLOAT64) > 0
-      AND cpf IS NOT NULL
-    ORDER BY cpf
-    """
-    rows = list(bq.query(sql).result())
-    logging.info(f"Registros de bônus: {len(rows)}")
-    return rows
+    dias_ate_sexta = (hoje.weekday() - 4) % 7
+    ultima_sexta = hoje - timedelta(days=dias_ate_sexta)
+    inicio = ultima_sexta - timedelta(weeks=1)
+    return inicio
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--inicio", default=None)
+    parser.add_argument("--inicio", help="Data de início (YYYY-MM-DD)", default=None)
     args = parser.parse_args()
 
     if args.inicio:
         data_inicio = date.fromisoformat(args.inicio)
-        data_fim    = data_inicio + timedelta(days=6)
     else:
-        data_inicio, data_fim = periodo_atual()
+        data_inicio = _ultima_semana_fechada()
 
     semana_iso = data_inicio.isocalendar()[1]
     ano = data_inicio.year
-    logging.info(f"Período: {data_inicio} a {data_fim} | Semana {semana_iso}/{ano}")
+    data_inicio_str = data_inicio.isoformat()
 
-    bq          = get_bq_client()
-    drive, gc   = get_drive_clients()
+    print(f"Período: {data_inicio_str} | Semana ISO: {semana_iso}")
 
-    folder_id = buscar_pasta_semana(drive, data_inicio, data_fim)
+    from google.oauth2 import service_account
+    from google.cloud import bigquery
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    from googleapiclient.discovery import build
+    import gspread
 
-    rows = buscar_bonus(bq, data_inicio)
+    creds_bq = service_account.Credentials.from_service_account_file(
+        CREDENTIALS, scopes=["https://www.googleapis.com/auth/bigquery"])
+    client = bigquery.Client(project=PROJECT_ID, credentials=creds_bq)
+
+    rows = list(client.query(f"""
+        SELECT cpf, CAST(bonus_recompensa AS FLOAT64) AS valor
+        FROM `{PROJECT_ID}.Ranking_Performance.carteira_operação`
+        WHERE data_inicio_ranking = '{data_inicio_str}'
+          AND CAST(bonus_recompensa AS FLOAT64) > 0
+          AND cpf IS NOT NULL
+        ORDER BY cpf
+    """).result())
+
+    print(f"Registros com bônus: {len(rows)}")
     if not rows:
-        logging.warning("Nenhum bônus encontrado para o período. Encerrando.")
-        sys.exit(0)
+        print("Nenhum registro encontrado — abortando")
+        sys.exit(1)
 
-    nome_planilha = f"[Bonus Recompensa][{ano}][Semana {semana_iso}]"
-    ws, sheet_id = criar_ou_abrir_planilha(drive, gc, nome_planilha, folder_id)
+    linhas = [["cpf", "valor"]]
+    for r in rows:
+        linhas.append([str(r.cpf).strip().zfill(11), f"{float(r.valor):.2f}".replace(".", ",")])
 
-    header = ["cpf", "valor"]
-    dados  = [
-        [str(r.cpf).zfill(11), f"{float(r.valor):.2f}".replace(".", ",")]
-        for r in rows
-    ]
+    creds_oauth = Credentials.from_authorized_user_file(TOKEN_PATH, scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive.readonly",
+    ])
+    if creds_oauth.expired and creds_oauth.refresh_token:
+        creds_oauth.refresh(Request())
 
-    todas = [header] + dados
-    lote  = 5000
-    if len(todas) <= lote:
-        ws.update(todas, value_input_option="RAW")
+    drive = build("drive", "v3", credentials=creds_oauth)
+    gc = gspread.authorize(creds_oauth)
+
+    # Buscar pasta da semana com paginação
+    candidatos = []
+    page_token = None
+    while True:
+        res = drive.files().list(
+            q=f"'{FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+            fields="nextPageToken, files(id,name)",
+            pageToken=page_token
+        ).execute()
+        candidatos.extend(res.get("files", []))
+        page_token = res.get("nextPageToken")
+        if not page_token:
+            break
+
+    pasta = next((f for f in candidatos if f"Semana {semana_iso}" in f["name"]), None)
+    if not pasta:
+        print(f"Pasta Semana {semana_iso} não encontrada em {len(candidatos)} subpastas")
+        sys.exit(1)
+    print(f"Pasta: {pasta['name']}")
+
+    nome = f"[Bonus Recompensa][{ano}][Semana {semana_iso}]"
+    res2 = drive.files().list(
+        q=f"name='{nome}' and '{pasta['id']}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+        fields="files(id,name)"
+    ).execute()
+
+    if res2["files"]:
+        sid = res2["files"][0]["id"]
+        sh = gc.open_by_key(sid)
+        print("Planilha já existe — sobrescrevendo")
     else:
-        ws.update(todas[:lote], value_input_option="RAW")
-        for i in range(lote, len(todas), lote):
-            time.sleep(1)
-            ws.append_rows(todas[i:i + lote], value_input_option="RAW")
+        f = drive.files().create(
+            body={"name": nome, "mimeType": "application/vnd.google-apps.spreadsheet", "parents": [pasta["id"]]},
+            fields="id"
+        ).execute()
+        sid = f["id"]
+        sh = gc.open_by_key(sid)
+        print(f"Planilha criada: {nome}")
 
-    link = f"https://docs.google.com/spreadsheets/d/{sheet_id}"
-    logging.info(f"✅ Planilha de bônus preenchida: {len(dados)} linhas")
-    print(f"BONUS_PLANILHA_LINK={link}")
+    ws = sh.worksheets()[0]
+    ws.clear()
+    ws.format("A:A", {"numberFormat": {"type": "TEXT"}})
+    ws.update(linhas, "A1", value_input_option="USER_ENTERED")
+    print(f"OK: {len(linhas) - 1} linhas escritas")
+    print(f"LINK=https://docs.google.com/spreadsheets/d/{sid}")
 
 
 if __name__ == "__main__":
