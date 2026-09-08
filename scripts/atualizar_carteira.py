@@ -26,7 +26,27 @@ load_dotenv()
 BASE_DIR      = os.path.dirname(os.path.abspath(__file__))
 TOKEN_PATH    = os.getenv("SHEETS_TOKEN_PATH") or os.getenv("TOKEN_PATH") or os.path.join(BASE_DIR, "sheets_token.json")
 PROJECT_ID    = os.getenv("PROJECT_ID", "shopper-datalakehouse-qa")
-CREDENTIALS   = os.getenv("CREDENTIALS")
+CREDENTIALS   = os.getenv("CREDENTIALS") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+def _bq_credentials():
+    import json
+    with open(CREDENTIALS) as f:
+        info = json.load(f)
+    if info.get("type") == "authorized_user":
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        c = Credentials(
+            token=None,
+            refresh_token=info["refresh_token"],
+            token_uri=info.get("token_uri", "https://oauth2.googleapis.com/token"),
+            client_id=info["client_id"],
+            client_secret=info["client_secret"],
+        )
+        c.refresh(Request())
+        return c
+    from google.oauth2 import service_account
+    return service_account.Credentials.from_service_account_file(CREDENTIALS)
+
 
 BQ_TABLE            = f"{PROJECT_ID}.Ranking_Performance.carteira_operação"
 DRIVE_PAGAMENTO_ID  = os.getenv("DRIVE_PAGAMENTO_FOLDER_ID", "1wz6cDH-WFbhb9Icf0NHG5gnGhDu_W2lM")
@@ -64,10 +84,9 @@ def ler_saldos_bq(data_inicio: date) -> dict:
     Lê saldo_pos_bonificacao do período imediatamente anterior em carteira_operação.
     Retorna {matricula_str: Decimal(saldo)}.
     """
-    from google.oauth2 import service_account
     from google.cloud import bigquery
 
-    creds_bq = service_account.Credentials.from_service_account_file(CREDENTIALS)
+    creds_bq = _bq_credentials()
     bq = bigquery.Client(project=PROJECT_ID, credentials=creds_bq)
 
     query = f"""
@@ -203,10 +222,9 @@ def ler_bonificacoes_bq(data_inicio: date) -> list[dict]:
       {matricula: str, nome: str, bonificacao: Decimal}
     Matrículas duplicadas (pessoa em mais de um ranking) têm bonificação somada.
     """
-    from google.oauth2 import service_account
     from google.cloud import bigquery
 
-    creds_bq = service_account.Credentials.from_service_account_file(CREDENTIALS)
+    creds_bq = _bq_credentials()
     bq = bigquery.Client(project=PROJECT_ID, credentials=creds_bq)
 
     query = f"""
@@ -280,10 +298,9 @@ def ler_bonificacoes_bq(data_inicio: date) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def gravar_bq(registros: list[dict], data_inicio: date) -> None:
-    from google.oauth2 import service_account
     from google.cloud import bigquery
 
-    creds_bq = service_account.Credentials.from_service_account_file(CREDENTIALS)
+    creds_bq = _bq_credentials()
     bq = bigquery.Client(project=PROJECT_ID, credentials=creds_bq)
 
     # Remove registros do mesmo período para evitar duplicatas
@@ -520,10 +537,8 @@ def main():
         ausentes = [mat for mat in recompensas if mat not in matriculas_ranking]
         if ausentes:
             logging.info(f"{len(ausentes)} matrícula(s) nas recompensas sem linha no ranking — buscando nomes em Dados Usuários")
-            from google.oauth2 import service_account
             from google.cloud import bigquery as _bq
-            _creds = service_account.Credentials.from_service_account_file(CREDENTIALS)
-            _client = _bq.Client(project=PROJECT_ID, credentials=_creds)
+            _client = _bq.Client(project=PROJECT_ID, credentials=_bq_credentials())
             lista_mats = ", ".join(f"'{m}'" for m in ausentes)
             _rows = list(_client.query(f"""
                 SELECT CAST(matricula AS STRING) AS matricula, nome

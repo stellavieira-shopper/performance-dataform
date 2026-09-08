@@ -28,7 +28,7 @@ from googleapiclient.discovery import build
 import gspread
 
 PROJECT_ID  = os.getenv("PROJECT_ID", "shopper-datalakehouse-qa")
-CREDENTIALS = os.getenv("CREDENTIALS")
+CREDENTIALS = os.getenv("CREDENTIALS") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 TOKEN_PATH  = os.getenv("SHEETS_TOKEN_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "sheets_token.json")
 FOLDER_ID   = os.getenv("DRIVE_PAGAMENTO_FOLDER_ID", "1wz6cDH-WFbhb9Icf0NHG5gnGhDu_W2lM")
 BQ_TABLE    = f"{PROJECT_ID}.Ranking_Performance.carteira_operação"

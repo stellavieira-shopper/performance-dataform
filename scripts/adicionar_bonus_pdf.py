@@ -27,7 +27,7 @@ from google.cloud import bigquery
 from google.auth import load_credentials_from_file
 
 PROJECT_ID  = os.getenv("PROJECT_ID", "shopper-datalakehouse-qa")
-CREDENTIALS = os.getenv("CREDENTIALS")
+CREDENTIALS = os.getenv("CREDENTIALS") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 BQ_TABLE    = "Ranking_Performance.carteira_operação"
 
 
