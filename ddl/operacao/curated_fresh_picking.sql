@@ -64,6 +64,7 @@ LEFT JOIN `shopper-datalakehouse-prod.shared.picking_and_packing_usuarios_n2` AS
 LEFT JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_itens_pedidos_n2` AS itens
   ON itens.kdabra_order_id = e21.kdabra_order_id
   AND COALESCE(itens.is_replacement, 0) = 0
+  AND itens.conveyor_type_id = 'F'
 CROSS JOIN (
   SELECT score_factor
   FROM `shopper-datalakehouse-prod.performance.performance_metrics_n2`
