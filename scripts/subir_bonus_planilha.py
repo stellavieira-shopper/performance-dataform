@@ -42,15 +42,29 @@ def main():
 
     print(f"Período: {data_inicio_str} | Semana ISO: {semana_iso}")
 
-    from google.oauth2 import service_account
+    import json
     from google.cloud import bigquery
     from google.oauth2.credentials import Credentials
     from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
     import gspread
 
-    creds_bq = service_account.Credentials.from_service_account_file(
-        CREDENTIALS, scopes=["https://www.googleapis.com/auth/bigquery"])
+    with open(CREDENTIALS) as f:
+        info = json.load(f)
+    if info.get("type") == "authorized_user":
+        from google.auth.transport.requests import Request
+        creds_bq = Credentials(
+            token=None,
+            refresh_token=info["refresh_token"],
+            token_uri=info.get("token_uri", "https://oauth2.googleapis.com/token"),
+            client_id=info["client_id"],
+            client_secret=info["client_secret"],
+        )
+        creds_bq.refresh(Request())
+    else:
+        from google.oauth2 import service_account
+        creds_bq = service_account.Credentials.from_service_account_file(
+            CREDENTIALS, scopes=["https://www.googleapis.com/auth/bigquery"])
     client = bigquery.Client(project=PROJECT_ID, credentials=creds_bq)
 
     rows = list(client.query(f"""
