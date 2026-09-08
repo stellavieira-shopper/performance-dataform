@@ -21,7 +21,7 @@ load_dotenv()
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 TOKEN_PATH  = os.getenv("SHEETS_TOKEN_PATH") or os.getenv("TOKEN_PATH") or os.path.join(BASE_DIR, "sheets_token.json")
 PROJECT_ID  = os.getenv("PROJECT_ID", "shopper-datalakehouse-qa")
-CREDENTIALS = os.getenv("CREDENTIALS")
+CREDENTIALS = os.getenv("CREDENTIALS") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 # Pasta raiz "Performance" no Drive
 DRIVE_PERFORMANCE_FOLDER_ID = "16-DR4Yo_yNujhMzXWyDxwJ68s4f352cB"
