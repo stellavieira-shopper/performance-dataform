@@ -33,7 +33,8 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 def _periodo_automatico():
     from datetime import timedelta
     hoje = date.today()
-    sexta = hoje - timedelta(days=(hoje.weekday() - 4) % 7)
+    ultima_sexta = hoje - timedelta(days=(hoje.weekday() - 4) % 7)
+    sexta = ultima_sexta - timedelta(weeks=1)
     return sexta.isoformat(), (sexta + timedelta(days=6)).isoformat()
 
 _ini_env = os.getenv("RELATORIO_DATA_INICIO", "").strip()
