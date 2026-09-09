@@ -43,9 +43,10 @@ BEGIN
 
   CREATE OR REPLACE TEMP TABLE tmp_AuxFaltantes AS
   SELECT DISTINCT
-    SAFE_CAST(matricula AS INT64) AS MATRICULA
-  FROM `shopper-datalakehouse-qa.Ranking_Performance.aux_faltantes`
-  WHERE matricula IS NOT NULL;
+    SAFE_CAST(MATRICULA AS INT64) AS MATRICULA
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.Organograma`
+  WHERE MATRICULA IS NOT NULL
+    AND UPPER(TRIM(ATRIBUICAO)) = 'AUX. FALTANTES';
 
   CREATE OR REPLACE TEMP TABLE tmp_DadosPonto AS
   SELECT
