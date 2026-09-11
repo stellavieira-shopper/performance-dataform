@@ -639,7 +639,8 @@ BEGIN
     total_recebimentos_reais,
 
     (
-      pontos_finais_anterior > 0
+      UPPER(TRIM(FC)) != 'FC4'
+      AND pontos_finais_anterior > 0
       AND delta_pontuacao >= 200000
       AND pontos_finais_atuais >= 700000
       AND pontos_finais_atuais < 1000000
@@ -648,7 +649,8 @@ BEGIN
     ) AS boa_evolucao,
 
     (
-      pontos_finais_atuais = MAX(pontos_finais_atuais) OVER (
+      UPPER(TRIM(FC)) != 'FC4'
+      AND pontos_finais_atuais = MAX(pontos_finais_atuais) OVER (
         PARTITION BY
           data_inicio,
           FC,
@@ -674,7 +676,8 @@ BEGIN
     ) AS top_1_setor,
 
     (
-      CAST(data_admissao AS DATE) >= CAST(data_inicio AS DATE)
+      UPPER(TRIM(FC)) != 'FC4'
+      AND CAST(data_admissao AS DATE) >= CAST(data_inicio AS DATE)
       AND CAST(data_admissao AS DATE) <= CAST(data_final AS DATE)
       AND pontos_finais_atuais > 500000
       AND UPPER(COALESCE(status_ranking, '')) NOT LIKE '%ZERAD%'

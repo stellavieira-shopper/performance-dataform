@@ -236,7 +236,6 @@ BEGIN
       SUM(IF(p.expected_hours IS NOT NULL, EXTRACT(HOUR FROM p.expected_hours)*3600+EXTRACT(MINUTE FROM p.expected_hours)*60+EXTRACT(SECOND FROM p.expected_hours), 0)) AS segundos_esperados,
       COUNTIF(p.absence IS NOT NULL) AS FALTAS,
       COUNTIF(p.medical_certificate IS NOT NULL) AS ATESTADOS,
-      COUNTIF(p.vacation IS NOT NULL) AS ferias,
       COUNTIF(p.delay IS NOT NULL) AS qtd_delay,
       SUM(IF(p.delay IS NOT NULL, EXTRACT(HOUR FROM p.delay)*3600+EXTRACT(MINUTE FROM p.delay)*60+EXTRACT(SECOND FROM p.delay), 0)) AS total_segundos_delay,
       COUNTIF(p.hours_declaration IS NOT NULL) AS qtd_hours_declaration,
@@ -311,8 +310,8 @@ BEGIN
   Posicionamento AS (
     SELECT rf.*,
       UPPER(CASE
-        WHEN rf.atribuicao LIKE '%SUPERVISOR%' THEN 'LIDERANÇA'
-        WHEN rf.atribuicao LIKE '%FISCAL%' AND rf.setor_principal NOT IN ('PACKING','OPERAÇÃO FRESH','OPERACAO FRESH') THEN 'LIDERANÇA'
+        WHEN rf.FC != 'FC4' AND rf.atribuicao LIKE '%SUPERVISOR%' THEN 'LIDERANÇA'
+        WHEN rf.FC != 'FC4' AND rf.atribuicao LIKE '%FISCAL%' AND rf.setor_principal NOT IN ('PACKING','OPERAÇÃO FRESH','OPERACAO FRESH') THEN 'LIDERANÇA'
         WHEN rf.pontuacao_final = 0 AND rf.motivo_desqualificacao IS NOT NULL THEN 'DESQUALIFICADO'
         WHEN rf.mult_total = 0 AND (rf.kpi_obs LIKE '%RUPTURA%' OR rf.kpi_obs LIKE '%ERRO REPORTADO POR CLIENTE%')
           THEN IF(rf.pontuacao_final >= 1000000,'BONIFICAÇÃO ZERADA POR ERRO CLIENTE/RUPTURA (IA RECEBER)','BONIFICAÇÃO ZERADA POR ERRO CLIENTE/RUPTURA (NÃO IA RECEBER)')
@@ -321,8 +320,8 @@ BEGIN
         ELSE 'ELEGÍVEL'
       END) AS status_ranking,
       CASE
-        WHEN rf.atribuicao LIKE '%SUPERVISOR%' THEN NULL
-        WHEN rf.atribuicao LIKE '%FISCAL%' AND rf.setor_principal NOT IN ('PACKING','OPERAÇÃO FRESH','OPERACAO FRESH') THEN NULL
+        WHEN rf.FC != 'FC4' AND rf.atribuicao LIKE '%SUPERVISOR%' THEN NULL
+        WHEN rf.FC != 'FC4' AND rf.atribuicao LIKE '%FISCAL%' AND rf.setor_principal NOT IN ('PACKING','OPERAÇÃO FRESH','OPERACAO FRESH') THEN NULL
         WHEN rf.pontuacao_final > 0 THEN RANK() OVER (PARTITION BY rf.FC ORDER BY rf.pontuacao_final DESC NULLS LAST)
         ELSE NULL
       END AS posicao_ranking_fc

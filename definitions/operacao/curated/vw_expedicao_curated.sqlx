@@ -15,7 +15,7 @@ Volumes AS (
   INNER JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_n2` AS p
     ON p.kdabra_order_id = vol.kdabra_order_id
   WHERE p.delivery_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 40 DAY)
-    AND p.fulfillment_center_id IN (2, 3, 7)
+    AND p.fulfillment_center_id IN (2, 3, 7, 25)
     AND p.truck IS NOT NULL
   GROUP BY romaneio_base, p.delivery_date
 ),
