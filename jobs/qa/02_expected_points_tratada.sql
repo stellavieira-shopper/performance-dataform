@@ -117,6 +117,15 @@ BEGIN
       )
   ),
 
+  -- 2.1b ASSIDUIDADE APROVADA (protege colaborador de falta do ponto quando tem_direito = 'Sim')
+  Assiduidade_Aprovada AS (
+    SELECT DISTINCT
+      CAST(matricula AS NUMERIC) AS matricula_ok
+    FROM `shopper-datalakehouse-qa.Ranking_Performance.assiduidade_resultados`
+    WHERE periodo_inicio = v_inicio
+      AND UPPER(TRIM(tem_direito)) = 'SIM'
+  ),
+
   -- 2.2 ORGANOGRAMA (FOLGAS FIXAS)
   Organograma_Folgas AS (
     SELECT DISTINCT
@@ -154,6 +163,7 @@ BEGIN
 
       CASE WHEN p.matricula_ponto IS NOT NULL THEN TRUE ELSE FALSE END AS existe_no_ponto,
       CASE WHEN rh.matricula_rh IS NOT NULL THEN TRUE ELSE FALSE END AS existe_no_rh,
+      CASE WHEN aok.matricula_ok IS NOT NULL THEN TRUE ELSE FALSE END AS assiduidade_aprovada,
 
       CASE
         WHEN am.motivo_texto IS NOT NULL
@@ -179,6 +189,8 @@ BEGIN
       AND p.reference_date = rh.dia_referencia
     LEFT JOIN Assiduidade_Motivos am
       ON COALESCE(p.matricula_ponto, rh.matricula_rh) = am.matricula_falta
+    LEFT JOIN Assiduidade_Aprovada aok
+      ON COALESCE(p.matricula_ponto, rh.matricula_rh) = aok.matricula_ok
     LEFT JOIN Organograma_Folgas org
       ON COALESCE(p.matricula_ponto, rh.matricula_rh) = org.matricula_org
   ),
@@ -198,6 +210,7 @@ BEGIN
       CASE
         WHEN expected_hours IS NULL THEN NULL
         WHEN eh_folga_fixa THEN NULL
+        WHEN assiduidade_aprovada THEN NULL
         WHEN absence_original IS NOT NULL THEN absence_original
         WHEN tem_falta_extraida THEN COALESCE(expected_hours, real_hours, TIME '00:00:00')
         ELSE NULL
