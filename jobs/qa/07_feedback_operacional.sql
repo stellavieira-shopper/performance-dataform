@@ -210,7 +210,10 @@ BEGIN
         ORDER BY pontuacao_final DESC
       ) = 1
     ) r
-    WHERE UPPER(TRIM(r.atribuicao)) NOT LIKE '%SUPERVISOR%'
+    WHERE (
+        UPPER(TRIM(r.atribuicao)) NOT LIKE '%SUPERVISOR%'
+        OR UPPER(TRIM(r.FC)) = 'FC4'
+      )
       AND NOT (
         UPPER(TRIM(r.atribuicao)) LIKE '%FISCAL%'
         AND UPPER(TRIM(r.setor_principal)) NOT IN (
@@ -218,6 +221,7 @@ BEGIN
           'OPERAÇÃO FRESH',
           'OPERACAO FRESH'
         )
+        AND UPPER(TRIM(r.FC)) != 'FC4'
       )
   ),
 
