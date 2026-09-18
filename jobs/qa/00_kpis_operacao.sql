@@ -248,14 +248,22 @@ BEGIN
 
       -- GE: Inventário — ATUALIZAR TODA SEMANA
       -- [AUTO:ge-obs]
-      WHEN MATRICULA IN ('11145', '13232', '13106', '19069', '13793', '15259', '16436', '17320')
-      THEN 'Você não atingiu o mínimo de posições nem a acuracidade mínima necessários para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
-      WHEN MATRICULA IN ('11080', '10919', '4648', '10537', '17771', '18939', '17470')
-      THEN 'Você não atingiu o mínimo de posições necessário para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
-      WHEN MATRICULA IN ('18644', '14011', '15643', '15209', '16993', '18437', '18138', '13727', '16750', '17809', '13879', '15478', '14855', '17667')
-      THEN 'Você não atingiu a acuracidade mínima necessária para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
-      WHEN MATRICULA IN ('19407', '17511')
-      THEN 'Você recebeu uma detratora pela atividade de inventário de Gestão de Estoque nesta semana devido ao baixo desempenho nas contagens. Precisamos reduzir os erros para conseguir pontuar positivamente por essa atividade e ficar mais próximo da bonificação.'
+     WHEN MATRICULA IN ('11145', '13232', '13106', '19069', '13793', '15259', '16436', '17320')
+    THEN 'Você não atingiu o mínimo de posições nem a acuracidade mínima necessários para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+
+WHEN MATRICULA IN ('11080', '10919', '4648', '10537', '17771', '18939', '17470')
+    THEN 'Você não atingiu o mínimo de posições necessário para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+
+WHEN MATRICULA IN ('18644', '14011', '15643', '15209', '16993', '18437', '18138', '13727', '16750', '17809', '13879', '15478', '14855', '17667')
+    THEN 'Você não atingiu a acuracidade mínima necessária para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+
+WHEN MATRICULA = '17511'
+    THEN 'Você recebeu uma detratora pela atividade de inventário de Gestão de Estoque nesta semana devido ao baixo desempenho nas contagens. Precisamos reduzir os erros para conseguir pontuar positivamente por essa atividade e ficar mais próximo da bonificação.'
+
+WHEN MATRICULA = '19407'
+    THEN 'Você recebeu uma detratora pela atividade de reposição nesta semana devido ao baixo desempenho nas movimentações. Precisamos reduzir os erros para conseguir pontuar positivamente por essa atividade.'
+
+-- [/AUTO:ge-obs]
       -- [/AUTO:ge-obs]
 
       -- 7. KPIs Setoriais — ATUALIZAR TODA SEMANA
