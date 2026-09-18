@@ -419,21 +419,20 @@ BEGIN
     ROUND(individual_pts, 2),
     ROUND(pts_combinados, 2),
 
-    GREATEST(0.00, LEAST(350.0, ROUND(COALESCE(
+    GREATEST(0.00, LEAST(IF(FC='FC4',175.0,350.0), ROUND(COALESCE(
       IF(
         motivo_afastamento IS NOT NULL
         OR mult_kpi = 0
         OR FALTAS > 0
         OR ADVERTENCIAS > 0
         OR ATESTADOS > 0
-        OR COALESCE(f_bonif_f, 0) = 0
         OR (is_isento_minimo_equipe = FALSE AND COALESCE(f_total_f, 0) < limite_minimo_equipe),
         0.00,
         (
           CASE
             WHEN pts_combinados <= 0 THEN 0.00
             WHEN pts_combinados <= 1000000 THEN (pts_combinados / 1000000) * c_min
-            ELSE c_min + ((pts_combinados - 1000000) / GREATEST(1, COALESCE(p_max_fc, 3000000) - 1000000)) * (c_max - c_min)
+            ELSE c_min + ((pts_combinados - 1000000) / GREATEST(1, COALESCE(p_max_fc, 3000000) - 1000000)) * (IF(FC='FC4',175.0,c_max) - c_min)
           END
         ) * mult_kpi
       ),
@@ -457,7 +456,6 @@ BEGIN
         OR FALTAS > 0
         OR ADVERTENCIAS > 0
         OR ATESTADOS > 0
-        OR COALESCE(f_bonif_f, 0) = 0
         OR (is_isento_minimo_equipe = FALSE AND COALESCE(f_total_f, 0) < limite_minimo_equipe)
       ) THEN
         CASE
@@ -466,26 +464,24 @@ BEGIN
           WHEN ADVERTENCIAS > 0 THEN 'Advertência'
           WHEN ATESTADOS > 0 THEN 'Atestado'
           WHEN mult_kpi = 0 THEN COALESCE(kpi_obs, 'KPI Unidade Zerado')
-          WHEN COALESCE(f_bonif_f, 0) = 0 THEN 'Sem bonificados elegíveis'
           WHEN is_isento_minimo_equipe = FALSE AND COALESCE(f_total_f, 0) < limite_minimo_equipe THEN 'Mínimo de equipe não atingido'
           ELSE 'Nota insuficiente'
         END
       ELSE NULL
     END AS motivos,
 
-    GREATEST(0.00, LEAST(350.0, ROUND(COALESCE(
+    GREATEST(0.00, LEAST(IF(FC='FC4',175.0,350.0), ROUND(COALESCE(
       IF(
         motivo_afastamento IS NOT NULL
         OR FALTAS > 0
         OR ADVERTENCIAS > 0
         OR ATESTADOS > 0
-        OR COALESCE(f_bonif_f, 0) = 0
         OR (is_isento_minimo_equipe = FALSE AND COALESCE(f_total_f, 0) < limite_minimo_equipe),
         0.00,
         CASE
           WHEN pts_combinados <= 0 THEN 0.00
           WHEN pts_combinados <= 1000000 THEN (pts_combinados / 1000000) * c_min
-          ELSE c_min + ((pts_combinados - 1000000) / GREATEST(1, COALESCE(p_max_fc, 3000000) - 1000000)) * (c_max - c_min)
+          ELSE c_min + ((pts_combinados - 1000000) / GREATEST(1, COALESCE(p_max_fc, 3000000) - 1000000)) * (IF(FC='FC4',175.0,c_max) - c_min)
         END
       ),
       0.00
@@ -645,12 +641,11 @@ BEGIN
   SupComValor AS (
     SELECT
       *,
-      GREATEST(0.00, LEAST(350.0, ROUND(COALESCE(
+      GREATEST(0.00, LEAST(IF(FC='FC4',175.0,350.0), ROUND(COALESCE(
         IF(
           motivo_afastamento IS NOT NULL
           OR mult_kpi = 0
           OR COALESCE(pessoas_total, 0) = 0
-          OR COALESCE(bonificados_total, 0) = 0
           OR FALTAS > 0
           OR ADVERTENCIAS > 0
           OR ATESTADOS > 0,
@@ -659,18 +654,17 @@ BEGIN
             CASE
               WHEN pontuacao_combinada_final <= 0 THEN 0.00
               WHEN pontuacao_combinada_final <= 1000000 THEN (pontuacao_combinada_final / 1000000) * c_min
-              ELSE c_min + ((pontuacao_combinada_final - 1000000) / GREATEST(1, COALESCE(p_max_fc, 3000000) - 1000000)) * (c_max - c_min)
+              ELSE c_min + ((pontuacao_combinada_final - 1000000) / GREATEST(1, COALESCE(p_max_fc, 3000000) - 1000000)) * (IF(FC='FC4',175.0,c_max) - c_min)
             END
           ) * mult_kpi
         ),
         0.00
       ), 2))) AS valor_bonificacao_supervisor,
 
-      GREATEST(0.00, LEAST(350.0, ROUND(COALESCE(
+      GREATEST(0.00, LEAST(IF(FC='FC4',175.0,350.0), ROUND(COALESCE(
         IF(
           motivo_afastamento IS NOT NULL
           OR COALESCE(pessoas_total, 0) = 0
-          OR COALESCE(bonificados_total, 0) = 0
           OR FALTAS > 0
           OR ADVERTENCIAS > 0
           OR ATESTADOS > 0,
@@ -678,7 +672,7 @@ BEGIN
           CASE
             WHEN pontuacao_combinada_final <= 0 THEN 0.00
             WHEN pontuacao_combinada_final <= 1000000 THEN (pontuacao_combinada_final / 1000000) * c_min
-            ELSE c_min + ((pontuacao_combinada_final - 1000000) / GREATEST(1, COALESCE(p_max_fc, 3000000) - 1000000)) * (c_max - c_min)
+            ELSE c_min + ((pontuacao_combinada_final - 1000000) / GREATEST(1, COALESCE(p_max_fc, 3000000) - 1000000)) * (IF(FC='FC4',175.0,c_max) - c_min)
           END
         ),
         0.00
@@ -708,7 +702,7 @@ BEGIN
           IF(COALESCE(bonificados_total, 0) > 0, 'PENALIZADO POR KPI (IA RECEBER)', 'PENALIZADO POR KPI (NÃO IA RECEBER)'),
           COALESCE(kpi_obs, 'KPI Zerado')
         )
-      WHEN COALESCE(bonificados_total, 0) = 0 THEN 'Sem bonificados na equipe'
+      WHEN COALESCE(pessoas_total, 0) = 0 THEN 'Sem equipe mapeada'
       ELSE 'Nota insuficiente'
     END AS motivos_desqualificacao_supervisor,
     VALOR_SUPERVISOR_ANTES_DO_KPI,

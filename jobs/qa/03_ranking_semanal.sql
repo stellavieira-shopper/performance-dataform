@@ -310,8 +310,8 @@ BEGIN
   Posicionamento AS (
     SELECT rf.*,
       UPPER(CASE
-        WHEN rf.FC != 'FC4' AND rf.atribuicao LIKE '%SUPERVISOR%' THEN 'LIDERANÇA'
-        WHEN rf.FC != 'FC4' AND rf.atribuicao LIKE '%FISCAL%' AND rf.setor_principal NOT IN ('PACKING','OPERAÇÃO FRESH','OPERACAO FRESH') THEN 'LIDERANÇA'
+        WHEN rf.atribuicao LIKE '%SUPERVISOR%' THEN 'LIDERANÇA'
+        WHEN rf.atribuicao LIKE '%FISCAL%' AND rf.setor_principal NOT IN ('PACKING','OPERAÇÃO FRESH','OPERACAO FRESH') THEN 'LIDERANÇA'
         WHEN rf.pontuacao_final = 0 AND rf.motivo_desqualificacao IS NOT NULL THEN 'DESQUALIFICADO'
         WHEN rf.mult_total = 0 AND (rf.kpi_obs LIKE '%RUPTURA%' OR rf.kpi_obs LIKE '%ERRO REPORTADO POR CLIENTE%')
           THEN IF(rf.pontuacao_final >= 1000000,'BONIFICAÇÃO ZERADA POR ERRO CLIENTE/RUPTURA (IA RECEBER)','BONIFICAÇÃO ZERADA POR ERRO CLIENTE/RUPTURA (NÃO IA RECEBER)')
@@ -320,8 +320,8 @@ BEGIN
         ELSE 'ELEGÍVEL'
       END) AS status_ranking,
       CASE
-        WHEN rf.FC != 'FC4' AND rf.atribuicao LIKE '%SUPERVISOR%' THEN NULL
-        WHEN rf.FC != 'FC4' AND rf.atribuicao LIKE '%FISCAL%' AND rf.setor_principal NOT IN ('PACKING','OPERAÇÃO FRESH','OPERACAO FRESH') THEN NULL
+        WHEN rf.atribuicao LIKE '%SUPERVISOR%' THEN NULL
+        WHEN rf.atribuicao LIKE '%FISCAL%' AND rf.setor_principal NOT IN ('PACKING','OPERAÇÃO FRESH','OPERACAO FRESH') THEN NULL
         WHEN rf.pontuacao_final > 0 THEN RANK() OVER (PARTITION BY rf.FC ORDER BY rf.pontuacao_final DESC NULLS LAST)
         ELSE NULL
       END AS posicao_ranking_fc
@@ -333,7 +333,6 @@ BEGIN
     FROM Posicionamento
     WHERE pontuacao_final >= 1000000
       AND motivo_desqualificacao IS NULL
-      AND status_ranking <> 'LIDERANÇA'
     GROUP BY 1
   ),
 
@@ -344,7 +343,7 @@ BEGIN
           AND p.motivo_desqualificacao IS NULL
           AND p.status_ranking <> 'LIDERANÇA'
         THEN IF(COALESCE(mx.max_pts,0) <= 1000000, cfg.valor_minimo,
-          ROUND(cfg.valor_minimo + ((p.pontuacao_final-1000000)/(mx.max_pts-1000000))*(cfg.valor_maximo-cfg.valor_minimo),2))
+          ROUND(cfg.valor_minimo + ((p.pontuacao_final-1000000)/(mx.max_pts-1000000))*(IF(p.FC='FC4',175,cfg.valor_maximo)-cfg.valor_minimo),2))
         ELSE 0
       END AS VALOR_A_RECEBER_ANTES_DO_KPI
     FROM Posicionamento p
