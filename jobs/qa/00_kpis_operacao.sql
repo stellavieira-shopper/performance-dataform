@@ -131,7 +131,7 @@ BEGIN
 
       -- 6. Vistoria Picking + Fiscais de Picking individual — ATUALIZAR TODA SEMANA
       -- [AUTO:fiscais-picking-mult]
-      WHEN MATRICULA IN ('19266', '18983', '13995', '13008', '19357', '18264') THEN 0.0
+      WHEN MATRICULA IN ('19266', '18983', '13995', '13008', '19357', '18264') THEN 1.0
       WHEN MATRICULA IN ('19622', '17463', '19747', '19758', '19859', '19662', '19443') THEN 0.6
       WHEN MATRICULA IN ('17551', '15381', '9696', '15028', '10616', '17655', '10363', '16763', '17715') THEN 0.5
       WHEN MATRICULA IN ('11371', '17436', '19247', '7001', '17526', '19863', '19692', '10580') THEN 0.6
