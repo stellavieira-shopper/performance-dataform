@@ -1,6 +1,6 @@
 -- ██████████ SCRIPT FINAL CONSOLIDADO: KPIs OPERAÇÃO ██████████
 -- Atualizar semanalmente após geração das mensagens FC (skill dashboard-fc-mensagens)
--- Última atualização: 10/09/2026
+-- Última atualização: 17/09/2026
 -- ATENÇÃO: Não rodar sem antes atualizar as matrículas e mensagens da semana
 
 BEGIN
@@ -121,22 +121,21 @@ BEGIN
 
       -- 5. KPIs Individuais zerados por coordenadores — ATUALIZAR TODA SEMANA
       -- [AUTO:ind-zerados-mult]
-      WHEN MATRICULA IN ('13410', '9881') THEN 0.0
+      WHEN MATRICULA IN ('11961', '14134', '18746') THEN 0.0
       -- [/AUTO:ind-zerados-mult]
 
       -- 5b. KPIs Individuais parciais — ATUALIZAR TODA SEMANA
       -- [AUTO:ind-parcial-mult]
-      WHEN MATRICULA IN ('13075') THEN 0.7
-      WHEN MATRICULA IN ('14079', '14367', '19357', '10871', '12386', '13210', '14223', '19468', '13806', '12966', '16559', '10714', '13808', '10675', '17248', '14489', '16735', '17429', '18978', '11371', '12486') THEN 0.8
+      WHEN MATRICULA IN ('10537') THEN 0.9
       -- [/AUTO:ind-parcial-mult]
 
       -- 6. Vistoria Picking + Fiscais de Picking individual — ATUALIZAR TODA SEMANA
       -- [AUTO:fiscais-picking-mult]
-      WHEN MATRICULA IN ('19266', '19640', '18983', '18264', '19448', '19357', '19483') THEN 0.6
-      WHEN MATRICULA IN ('16618', '13154', '11205', '17122', '10625', '11422', '6669', '11635', '16167', '16193') THEN 0.5
-      WHEN MATRICULA IN ('15322', '17551', '18803', '17502', '19622', '17335', '11323', '17021', '13280', '15381', '11601', '10338', '10682', '19674', '19436', '13808', '19078', '12486', '12122', '15768') THEN 0.8
-      WHEN MATRICULA IN ('19325', '13008', '14503', '13995', '18168', '17815', '18297', '11599', '16799', '14402', '17870', '19482', '19355', '13420', '19383', '15907', '19261', '18909', '18154', '17782', '17880', '18903', '18550', '18879', '12880') THEN 0.6
-      WHEN MATRICULA IN ('11273', '18111') THEN 1.0
+      WHEN MATRICULA IN ('19266', '18983', '13995', '13008', '19357', '18264') THEN 1.0
+      WHEN MATRICULA IN ('19622', '17463', '19747', '19758', '19859', '19662', '19443') THEN 0.6
+      WHEN MATRICULA IN ('17551', '15381', '9696', '15028', '10616', '17655', '10363', '16763', '17715') THEN 0.5
+      WHEN MATRICULA IN ('11371', '17436', '19247', '7001', '17526', '19863', '19692', '10580') THEN 0.6
+      WHEN MATRICULA IN ('4990', '17528', '17207', '17508', '15719', '19762', '18820', '15819') THEN 0.8
       -- [/AUTO:fiscais-picking-mult]
 
       ELSE 1.0
@@ -151,7 +150,7 @@ BEGIN
       WHEN IMPACTO_ERRO IN ('RUPTURA', 'PERDA', 'ERRO_CLIENTE') THEN 1.0
       WHEN ORIGEM = 'GESTAO_ESTOQUE' AND IS_NAO_MEDIVEL = TRUE THEN 1.0
       -- [AUTO:ind-zerados-setor-neut]
-      WHEN MATRICULA IN ('13410', '9881') THEN 1.0
+      WHEN MATRICULA IN ('11961', '14134', '18746') THEN 1.0
       -- [/AUTO:ind-zerados-setor-neut]
 
       -- ── Setoriais — ATUALIZAR TODA SEMANA ──
@@ -169,17 +168,16 @@ BEGIN
       -- antes da rede de segurança, que tem que vir antes de FC1/FC2/FC3.
       -- [AUTO:setoriais-mult]
       WHEN AREA = 'CAMPINAS' THEN 1.0
-      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC1' AND TURNO = 'MANHÃ' THEN 0.9
-      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC1' AND TURNO = 'TARDE' THEN 0.9
-      WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC1' THEN 0.5
-      WHEN (SETOR_ORIGINAL LIKE '%PRÉ%EXPED%' OR SETOR_ORIGINAL LIKE '%PRE%EXPED%') AND FC = 'FC1' THEN 0.5
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC1' THEN 0.8
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1' AND ATRIBUICAO_ORIGINAL LIKE '%MAPEAMENTO%' AND TURNO = 'TARDE' THEN 0.8
       WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC2' AND TURNO IN ('MANHÃ', 'TARDE') THEN 0.9
-      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'MANHÃ' THEN 0.85
-      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'TARDE' THEN 0.7
-      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'NOITE' THEN 0.7
-      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3' THEN 0.8
-      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC3' THEN 0.9
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'MANHÃ' THEN 0.8
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'TARDE' THEN 0.65
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'NOITE' THEN 0.5
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3' AND ATRIBUICAO_ORIGINAL LIKE '%CONGELADO%' THEN 0.5
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3' AND ATRIBUICAO_ORIGINAL LIKE '%FLV%' THEN 0.8
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC3' THEN 0.9
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3' THEN 0.9
       -- [/AUTO:setoriais-mult]
 
       ELSE 1.0
@@ -220,84 +218,44 @@ BEGIN
 
       -- 5. KPIs Individuais zerados por coordenadores — ATUALIZAR TODA SEMANA
       -- [AUTO:ind-zerados-obs]
-      WHEN MATRICULA IN ('13410')
-      THEN 'VALOR DA BONIFICAÇÃO ZERADO. Não esta  sendo executadas suas atividades como fiscal  conforme o esperado. É necessário maior atuação e acompanhamento das rotinas e garantir a execução dos processo'
-      WHEN MATRICULA IN ('9881')
-      THEN 'VALOR DA BONIFICAÇÃO ZERADO. Tempo morto comportamental — 2ª Reincidência (3 ocorrências na semana). Motivo: Demora no início após direcionamento. 1ª ocorr. em 08/09/2026 (Demora no início após direcionamento (comportamental)); 2ª ocorr. em 09/09/2026 (Demora no início após direcionamento (comportamental) — oper); 3ª ocorr. em 10/09/2026 (Demora no início após direcionamento (comportamental)). Ação: bonificação zerada.'
+      WHEN MATRICULA IN ('14134')
+      THEN 'VALOR DA BONIFICAÇÃO ZERADO. Substituição de SKU OVO CAIPIRA ORGÂNICO JUMBO RAIAR ORGÂNICOS - Mapeado em reserva Pedido:1789525967_5484583_P - SKU: CT199763 Evidência : https://drive.google.com/file/d/1KWmlDnsLuIrK7BwSzE0vd_sxlyuhvi8n/view?usp=drivesdk'
+      WHEN MATRICULA IN ('11961')
+      THEN 'VALOR DA BONIFICAÇÃO ZERADO. Evidencias da CAIXA VAZIA enviada ao cliente   https://drive.google.com/drive/folders/1ELUVRfzT3x662ZXetB2G1WloI3uzLpNC?usp=drive_link'
+      WHEN MATRICULA IN ('18746')
+      THEN 'VALOR DA BONIFICAÇÃO ZERADO. Executando atividade simultanea https://docs.google.com/spreadsheets/d/1AIZN92t5wZBCNBvTEbtZFkcyBGKkOf78s6UOstN-7JY/edit?gid=0#gid=0'
       -- [/AUTO:ind-zerados-obs]
 
       -- 5b. KPIs Individuais parciais — ATUALIZAR TODA SEMANA
       -- [AUTO:ind-parcial-obs]
-      WHEN MATRICULA IN ('13075')
-      THEN '0.3 na Bonificação. Não esta  sendo executadas suas atividades como fiscal  conforme o esperado. É necessário maior atuação e acompanhamento das rotinas e garantir a execução dos processo'
-      WHEN MATRICULA IN ('14079')
-      THEN '0.2 na Bonificação. Tempo morto comportamental — 1ª Reincidência (2 ocorrências na semana). Motivo: Demora no início após direcionamento. 1ª ocorr. em 05/09/2026 (Demora no início após direcionamento (comportamental) — O co); 2ª ocorr. em 07/09/2026 (Demora no início após direcionamento (comportamental) — O co). Ação: desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('14367')
-      THEN '0.2 na Bonificação. Tempo morto comportamental — 1ª Reincidência (2 ocorrências na semana). Motivo: Demora no início após direcionamento. 1ª ocorr. em 08/09/2026 (Demora no início após direcionamento (comportamental) — Supe); 2ª ocorr. em 10/09/2026 (Demora no início após direcionamento (comportamental) — Cola). Ação: desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('19357')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PICKING sem alocação no QLP. Setor de origem: PACKING. Dia: 04/09/2026 (executou PICKING) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('10871')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou OPERAÇÃO FRESH sem alocação no QLP. Setor de origem: FRACIONAMENTO. Dia: 10/09/2026 (executou OPERAÇÃO FRESH) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('12386')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PICKING sem alocação no QLP. Setor de origem: PACKING. Dia: 08/09/2026 (executou PICKING) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('13210')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PACKING sem alocação no QLP. Setor de origem: PICKING. Dia: 05/09/2026 (executou PACKING) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('14223')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PACKING sem alocação no QLP. Setor de origem: PICKING. Dia: 04/09/2026 (executou PACKING) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('19468')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PICKING sem alocação no QLP. Setor de origem: FRACIONAMENTO. Dia: 04/09/2026 (executou PICKING) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('13806')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PICKING sem alocação no QLP. Setor de origem: PACKING. Dia: 06/09/2026 (executou PICKING) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('12966')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PICKING sem alocação no QLP. Setor de origem: PACKING. Dia: 08/09/2026 (executou PICKING) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('16559')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PICKING sem alocação no QLP. Setor de origem: PACKING. Dia: 05/09/2026 (executou PICKING) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('10714')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou OPERAÇÃO FRESH sem alocação no QLP. Setor de origem: FRACIONAMENTO. Dia: 05/09/2026 (executou OPERAÇÃO FRESH) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('13808')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PICKING sem alocação no QLP. Setor de origem: PACKING. Dia: 04/09/2026 (executou PICKING) — sem nenhuma alocação registrada no QLP. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('10675')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou OPERAÇÃO FRESH sem alocação no QLP. Setor de origem: FRACIONAMENTO. Dia: 10/09/2026 (executou OPERAÇÃO FRESH) — alocado em AUX. FRACIONAMENTO / 5S [alocações do dia: 5S, AUX. FRACIONAMENTO]. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('17248')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou OPERAÇÃO FRESH sem alocação no QLP. Setor de origem: FRACIONAMENTO. Dia: 09/09/2026 (executou OPERAÇÃO FRESH) — alocado em 5S. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('14489')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PACKING sem alocação no QLP. Setor de origem: PICKING. Dia: 05/09/2026 (executou PACKING) — alocado em 5S. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('16735')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou OPERAÇÃO FRESH sem alocação no QLP. Setor de origem: PICKING. Dia: 04/09/2026 (executou OPERAÇÃO FRESH) — alocado em 5S. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('17429')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PACKING sem alocação no QLP. Setor de origem: OPERAÇÃO FRESH. Dia: 04/09/2026 (executou PACKING) — alocado em SEPARAÇÃO [alocações do dia: FRESH PICKER/PACKER, SEPARAÇÃO]. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('18978')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PICKING sem alocação no QLP. Setor de origem: OPERAÇÃO FRESH. Dia: 04/09/2026 (executou PICKING) — alocado em FRESH PICKER/PACKER / 5S [alocações do dia: 5S, FRESH PICKER/PACKER]. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('11371')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou PACKING sem alocação no QLP. Setor de origem: OPERAÇÃO FRESH. Dia: 05/09/2026 (executou PACKING) — alocado em 5S [alocações do dia: FRESH PICKER/PACKER, 5S]. Desconto de 20% na bonificação.'
-      WHEN MATRICULA IN ('12486')
-      THEN '0.2 na Bonificação. Furo de alocação — Executou OPERAÇÃO FRESH sem alocação no QLP. Setor de origem: PACKING. Dia: 08/09/2026 (executou OPERAÇÃO FRESH) — alocado em CHECKOUT [alocações do dia: CHECKOUT, SEPARAÇÃO]. Desconto de 20% na bonificação.'
+      WHEN MATRICULA IN ('10537')
+      THEN '0.1 na Bonificação. Fiscal não fez a exclusão da lista de reposição completa no horário combinado 19H, causando atraso na  execução da lista de reposição geral'
       -- [/AUTO:ind-parcial-obs]
 
       -- 6. Vistoria Picking + Fiscais de Picking individual — ATUALIZAR TODA SEMANA
       -- [AUTO:fiscais-picking-obs]
-      WHEN MATRICULA IN ('19266', '19640', '18983', '18264', '19448', '19357', '19483')
-      THEN '-40% na Bonificação. Você está entre os 20% dos colaboradores de Picking que mais cometeu erros na última semana com uma taxa muito acima da esperada.'
-      WHEN MATRICULA IN ('16618', '13154', '11205', '17122', '10625', '11422', '6669', '11635', '16167', '16193')
-      THEN '-50% na Bonificação. Você está entre os 20% dos colaboradores de Picking que mais cometeu erros na última semana com uma taxa muito acima da esperada. (Inclui -10% de acréscimo por reincidência alternada nas listas de erro)'
-      WHEN MATRICULA IN ('15322', '17551', '18803', '17502', '19622', '17335', '11323', '17021', '13280', '15381', '11601', '10338', '10682', '19674', '19436', '13808', '19078', '12486', '12122', '15768')
-      THEN '-20% na Bonificação. Você apresentou uma alta taxa de erros no Picking, que supera o limite aceitável. Essa performance impactou diretamente os indicadores da área e gerou mais retrabalho para outras áreas.'
-      WHEN MATRICULA IN ('19325', '13008', '14503', '13995', '18168', '17815', '18297', '11599', '16799', '14402', '17870', '19482', '19355', '13420', '19383', '15907', '19261', '18909', '18154', '17782', '17880', '18903', '18550', '18879', '12880')
-      THEN '-40% na Bonificação. Na última semana, você esteve entre os 20% dos colaboradores de outros setores que apresentaram as maiores taxas de erro ao serem alocados para o Picking. Independentemente da área de atuação, é indispensável manter a alta produtividade e qualidade.'
-      WHEN MATRICULA IN ('11273', '18111')
+      WHEN MATRICULA IN ('19266', '18983', '13995', '13008', '19357', '18264')
       THEN 'VALOR DA BONIFICAÇÃO ZERADO. Colaboradores reincidentes nos 20% Piores com maior taxa de erro no Picking.'
+      WHEN MATRICULA IN ('19622', '17463', '19747', '19758', '19859', '19662', '19443')
+      THEN '-40% na Bonificação. Você está entre os 20% dos colaboradores de Picking que mais cometeu erros na última semana com uma taxa muito acima da esperada.'
+      WHEN MATRICULA IN ('17551', '15381', '9696', '15028', '10616', '17655', '10363', '16763', '17715')
+      THEN '-50% na Bonificação. Você está entre os 20% dos colaboradores de Picking que mais cometeu erros na última semana com uma taxa muito acima da esperada. (Inclui -10% de acréscimo por reincidência alternada nas listas de erro)'
+      WHEN MATRICULA IN ('11371', '17436', '19247', '7001', '17526', '19863', '19692', '10580')
+      THEN '-40% na Bonificação. Na última semana, você esteve entre os 20% dos colaboradores de outros setores que apresentaram as maiores taxas de erro ao serem alocados para o Picking. Independentemente da área de atuação, é indispensável manter a alta produtividade e qualidade.'
+      WHEN MATRICULA IN ('4990', '17528', '17207', '17508', '15719', '19762', '18820', '15819')
+      THEN '-20% na Bonificação. Você apresentou uma alta taxa de erros no Picking, que supera o limite aceitável. Essa performance impactou diretamente os indicadores da área e gerou mais retrabalho para outras áreas.'
       -- [/AUTO:fiscais-picking-obs]
 
       -- GE: Inventário — ATUALIZAR TODA SEMANA
       -- [AUTO:ge-obs]
-      WHEN MATRICULA IN ('5728', '7064', '11080', '12003', '13106', '16439', '18200', '17451', '19327', '16902', '13793', '17320', '17247')
-      THEN 'Você não atingiu o mínimo de posições necessário para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
-      WHEN MATRICULA IN ('10893', '11145', '13232', '8869', '16984', '19712', '18138', '18437', '16436', '12893')
+      WHEN MATRICULA IN ('11145', '13232', '13106', '19069', '13793', '15259', '16436', '17320')
       THEN 'Você não atingiu o mínimo de posições nem a acuracidade mínima necessários para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
-      WHEN MATRICULA IN ('18925', '19030', '13794', '14033', '15209', '18335', '15643', '16750', '13727', '15259', '15478')
+      WHEN MATRICULA IN ('11080', '10919', '4648', '10537', '17771', '18939', '17470')
+      THEN 'Você não atingiu o mínimo de posições necessário para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+      WHEN MATRICULA IN ('18644', '14011', '15643', '15209', '16993', '18437', '18138', '13727', '16750', '17809', '13879', '15478', '14855', '17667')
       THEN 'Você não atingiu a acuracidade mínima necessária para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
-      WHEN MATRICULA IN ('13869', '13879', '17052', '18445')
-      THEN 'Você recebeu uma detratora pela atividade de inventário de Gestão de Estoque nesta semana devido ao baixo desempenho nas contagens. Precisamos reduzir os erros para conseguir pontuar positivamente por essa atividade e ficar mais próximo da bonificação.'
+      WHEN MATRICULA IN ('17511')
+      THEN 'Você não atingiu o tempo necessário para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
       -- [/AUTO:ge-obs]
 
       -- 7. KPIs Setoriais — ATUALIZAR TODA SEMANA
@@ -306,28 +264,26 @@ BEGIN
       -- depois FC1/FC2/FC3.
       -- [AUTO:setoriais-obs]
       WHEN AREA = 'CAMPINAS' THEN NULL
-      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC1' AND TURNO = 'MANHÃ'
-      THEN '-10% na Bonificação. O turno da manhã apresentou erros na alocação de produtos CONG/REFRI em destinos divergentes, impactando o mapeamento. Essa falha no processo influenciou negativamente os resultados de divergências e o percentual de pedidos mapeados.'
-      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC1' AND TURNO = 'TARDE'
-      THEN '-10% na Bonificação. O turno da tarde apresentou erros na alocação de produtos refrigerados e congelados em destinos divergentes. Esta falha impactou negativamente os resultados de divergências e o percentual de pedidos mapeados.'
-      WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC1'
-      THEN '-50% na Bonificação. O resultado foi impactado pelos tempos de carregamento de SMD, HR e Fiorino, que ficaram distantes da meta. O atraso no término da leva A e a performance dos pedidos mapeados também contribuíram para o resultado da semana.'
-      WHEN (SETOR_ORIGINAL LIKE '%PRÉ%EXPED%' OR SETOR_ORIGINAL LIKE '%PRE%EXPED%') AND FC = 'FC1'
-      THEN '-50% na Bonificação. O resultado foi impactado pela performance no tempo de carregamento SMD e no percentual de pedidos mapeados. Os tempos de carregamento para HR e Fiorino, além do horário de término da leva A, continuam sendo pontos de atenção.'
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC1'
+      THEN '-20% na Bonificação. O resultado de completos mercearia e divergência de estoque ficou distante da meta devido aos recorrentes erros de itens não encontrados e reposição em locais divergentes. É fundamental que a alocação de cada produto no seu endereço correto seja garantida para reverter o cenário.'
+      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC1' AND ATRIBUICAO_ORIGINAL LIKE '%MAPEAMENTO%' AND TURNO = 'TARDE'
+      THEN '-20% na Bonificação. O time de Mapeamento do turno da tarde precisa realizar as baixas de forma simultânea, pois o processo de atualizar o estoque apenas no final do turno está incorreto. Essa prática piorou os resultados de divergências de estoque e nos manteve distantes da meta de completos fresh.'
       WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC2' AND TURNO IN ('MANHÃ', 'TARDE')
-      THEN '-10% na Bonificação. Os tempos de carregamento de SMD, HR e Fiorino ficaram distantes da meta. O tempo de término da leva A também apresentou piora, afetando o indicador de pedidos mapeados.'
+      THEN '-10% na Bonificação. O tempo de carregamento de veículos SMD, HR e Fiorino ficou distante da meta. O horário de término da leva A precisa de atenção para atingir o objetivo.'
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'MANHÃ'
-      THEN '-15% na Bonificação. O turno da manhã manteve o resultado da semana anterior, porém o indicador de completos mercearia permanece distante da meta. Precisamos focar na melhoria deste processo para evitar perdas futuras.'
+      THEN '-20% na Bonificação. O turno da manhã apresenta boa execução e regularidade nas atividades operacionais. No entanto, o indicador de completos mercearia segue distante da meta, impactando diretamente o resultado e exigindo maior atenção do time.'
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'TARDE'
-      THEN '-30% na Bonificação. A baixa eficiência do turno da tarde na execução das atividades impactou negativamente nossos indicadores de completos mercearia e rupturas. O resultado de divergência de estoque também ficou distante da meta, reforçando a necessidade de maior atenção aos processos.'
+      THEN '-35% na Bonificação. A baixa eficiência do turno da tarde impactou negativamente o resultado de completos mercearia e aumentou as divergências de estoque. Este desempenho distante da meta também piorou o indicador de rupturas não consultadas.'
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'NOITE'
-      THEN '-30% na Bonificação. A baixa eficiência do turno da noite na execução das atividades diárias manteve o resultado do indicador de completos mercearia distante da meta. A não conclusão recorrente da Lista C.1 foi o principal fator para este resultado.'
-      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3'
-      THEN '-20% na Bonificação. Observamos uma melhora no resultado de Erros - Global, indicando evolução nos processos. No entanto, o indicador de Completos Fresh - KPI permaneceu distante da meta.'
-      WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC3'
-      THEN '-10% na Bonificação. Erros operacionais na conferência e mapeamento impactaram o indicador de pedidos mapeados e aumentaram as divergências de estoque. Essa performance nos deixou distantes da meta de completos fresh.'
+      THEN '-50% na Bonificação. A baixa eficiência do turno da noite na conclusão das atividades de reposição está impactando o resultado. O indicador de completos mercearia ficou distante da meta devido à não finalização recorrente das listas.'
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3' AND ATRIBUICAO_ORIGINAL LIKE '%CONGELADO%'
+      THEN '-50% na Bonificação. Falhas no endereçamento de produtos impactaram negativamente os resultados de completos fresh, rupturas e divergências de estoque. É fundamental garantir o correto mapeamento de todos os itens na reserva para reverter o cenário e melhorar a performance.'
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3' AND ATRIBUICAO_ORIGINAL LIKE '%FLV%'
+      THEN '-20% na Bonificação. As falhas operacionais na movimentação de produtos entre a reserva e a gôndola impactaram diretamente o indicador de completos fresh, que permaneceu distante da meta. Consequentemente, os resultados para rupturas não consultadas e divergências de estoque também ficaram abaixo do esperado.'
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC3'
-      THEN '-10% na Bonificação. Erros operacionais durante a conferência e o mapeamento impactaram o resultado de divergências de estoque e o percentual de pedidos mapeados. A atenção ao processo é fundamental para a melhora dos completos mercearia.'
+      THEN '-10% na Bonificação. Os erros operacionais na conferência e mapeamento impactaram negativamente os resultados de pedidos mapeados e aumentaram as divergências de estoque. Esta performance no processo inicial também afetou o indicador de completos mercearia.'
+      WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3'
+      THEN '-10% na Bonificação. Os erros operacionais na conferência e mapeamento impactaram negativamente o percentual de pedidos mapeados Fresh e o indicador de divergências de estoque. A performance na atividade também prejudicou o resultado de completos fresh e o tempo de carregamento dos SMDs.'
       -- [/AUTO:setoriais-obs]
 
       ELSE NULL
