@@ -199,9 +199,9 @@ def ler_vistoria_semana(wb) -> list[dict]:
 
 
 def ler_ge(wb_ge) -> list[dict]:
-    """Lê abas FC1/FC2/FC3 da planilha GE, retorna linhas com JUSTIFICATIVA."""
+    """Lê abas FC1/FC2/FC3/FC4 da planilha GE, retorna linhas com JUSTIFICATIVA."""
     result = []
-    for fc_nome in ["FC1", "FC2", "FC3"]:
+    for fc_nome in ["FC1", "FC2", "FC3", "FC4"]:
         if fc_nome not in wb_ge.sheetnames:
             continue
         ws = wb_ge[fc_nome]
@@ -681,11 +681,13 @@ def _to_mat(val) -> str:
 
 
 def _is_zero(desconto) -> bool:
+    """Retorna True se o desconto representa zerado: 0%, 100% ou -100%."""
     if desconto is None:
         return False
     s = str(desconto).strip().replace("%", "").replace("+", "")
     try:
-        return float(s) == 0.0
+        v = float(s)
+        return v == 0.0 or abs(v) >= 100.0
     except ValueError:
         return False
 
@@ -731,12 +733,19 @@ def atualizar_sql_kpis(
     )
 
     # ── 3. ind-zerados-setor-neut (neutralizador em MULT_SETOR) ──────────────
+    # Fiscais zerados (pct_desconto = 0.0) também precisam de MULT_SETOR = 1.0
+    fiscais_zerados_mats = sorted({
+        str(f["matricula"]) for f in fiscais
+        if f.get("matricula") and float(f.get("pct_desconto") or 1) == 0.0
+    })
+    todos_zerados_neut = sorted(set(zerado_mats) | set(fiscais_zerados_mats))
     sql = _replace_sql_section(
         sql, "ind-zerados-setor-neut",
-        f"WHEN MATRICULA IN ({_sql_mats(zerado_mats)}) THEN 1.0\n" if zerado_mats else "",
+        f"WHEN MATRICULA IN ({_sql_mats(todos_zerados_neut)}) THEN 1.0\n" if todos_zerados_neut else "",
     )
 
     # ── 4. fiscais-picking-mult (MULT_MATRICULA — Vistoria + Fiscais) ─────────
+
     # Agrupa Vistoria por (mult, mensagem) para compactar matrículas iguais
     picking_groups: dict = {}
     for v in vistoria:
