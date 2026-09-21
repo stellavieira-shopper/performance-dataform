@@ -9,13 +9,15 @@ WITH base AS (
     u.registration_number,
     u.user_name,
     COALESCE(
-      SAFE_CAST(rm.start_timestamp AS TIMESTAMP),
-      SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S', rm.start_timestamp),
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%dT%H:%M:%S', REGEXP_REPLACE(rm.start_timestamp, r'[TZ]?\d{2}:\d{2}$|[+-]\d{2}:\d{2}$|Z$', ''))),
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%d %H:%M:%S', rm.start_timestamp)),
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y/%m/%d %H:%M:%S', rm.start_timestamp)),
       TIMESTAMP(SAFE.PARSE_DATETIME('%a %b %d %Y %H:%M:%S', REGEXP_REPLACE(rm.start_timestamp, r' GMT[^ ]*.*$', '')))
     ) AS start_ts,
     COALESCE(
-      SAFE_CAST(rm.end_timestamp AS TIMESTAMP),
-      SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S', rm.end_timestamp),
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%dT%H:%M:%S', REGEXP_REPLACE(rm.end_timestamp, r'[TZ]?\d{2}:\d{2}$|[+-]\d{2}:\d{2}$|Z$', ''))),
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%d %H:%M:%S', rm.end_timestamp)),
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y/%m/%d %H:%M:%S', rm.end_timestamp)),
       TIMESTAMP(SAFE.PARSE_DATETIME('%a %b %d %Y %H:%M:%S', REGEXP_REPLACE(rm.end_timestamp, r' GMT[^ ]*.*$', '')))
     ) AS end_ts,
     rm.source_system, pm.metric_type, pm.metric_code,
@@ -68,9 +70,10 @@ WITH base AS (
   LEFT JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_n2` AS p ON p.order_code = JSON_VALUE(rm.details, '$.order_code')
   LEFT JOIN `shopper-datalakehouse-prod.shared.purchase_automation_produtos_n3` AS prod ON prod.sku_id = SAFE_CAST(JSON_VALUE(rm.details, '$.sku_id') AS INT64)
   WHERE COALESCE(
-      SAFE_CAST(rm.start_timestamp AS TIMESTAMP),
-      SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S', rm.start_timestamp),
-      SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z', REGEXP_REPLACE(rm.start_timestamp, r' \([^)]*\)$', ''))
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%dT%H:%M:%S', REGEXP_REPLACE(rm.start_timestamp, r'[TZ]?\d{2}:\d{2}$|[+-]\d{2}:\d{2}$|Z$', ''))),
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%d %H:%M:%S', rm.start_timestamp)),
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y/%m/%d %H:%M:%S', rm.start_timestamp)),
+      TIMESTAMP(SAFE.PARSE_DATETIME('%a %b %d %Y %H:%M:%S', REGEXP_REPLACE(rm.start_timestamp, r' GMT[^ ]*.*$', '')))
     ) >= TIMESTAMP(DATE_TRUNC(DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 1 MONTH), MONTH), 'America/Sao_Paulo')
 ),
 
