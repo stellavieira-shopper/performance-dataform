@@ -11,12 +11,12 @@ WITH base AS (
     COALESCE(
       SAFE_CAST(rm.start_timestamp AS TIMESTAMP),
       SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S', rm.start_timestamp),
-      SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z', REGEXP_REPLACE(rm.start_timestamp, r' \([^)]*\)$', ''))
+      TIMESTAMP(SAFE.PARSE_DATETIME('%a %b %d %Y %H:%M:%S', REGEXP_REPLACE(rm.start_timestamp, r' GMT[^ ]*.*$', '')))
     ) AS start_ts,
     COALESCE(
       SAFE_CAST(rm.end_timestamp AS TIMESTAMP),
       SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S', rm.end_timestamp),
-      SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z', REGEXP_REPLACE(rm.end_timestamp, r' \([^)]*\)$', ''))
+      TIMESTAMP(SAFE.PARSE_DATETIME('%a %b %d %Y %H:%M:%S', REGEXP_REPLACE(rm.end_timestamp, r' GMT[^ ]*.*$', '')))
     ) AS end_ts,
     rm.source_system, pm.metric_type, pm.metric_code,
     CASE WHEN rm.metric_code = 'STOCK_RECEIVEMENT'
