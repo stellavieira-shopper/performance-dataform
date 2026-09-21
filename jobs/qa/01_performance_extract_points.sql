@@ -76,8 +76,8 @@ WITH base AS (
 
 base2 AS (
   SELECT b.*,
-    DATETIME(b.start_ts, 'America/Sao_Paulo') AS activity_start,
-    DATETIME(b.end_ts,   'America/Sao_Paulo') AS activity_end,
+    DATETIME(b.start_ts) AS activity_start,
+    DATETIME(b.end_ts)   AS activity_end,
     TIMESTAMP_DIFF(b.end_ts, b.start_ts, SECOND) / 3600.0 AS activity_worked_hours,
     DATE(CASE
       WHEN EXTRACT(HOUR FROM DATETIME(b.start_ts)) < 6
