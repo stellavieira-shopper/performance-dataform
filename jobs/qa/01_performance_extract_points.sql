@@ -9,12 +9,14 @@ WITH base AS (
     u.registration_number,
     u.user_name,
     COALESCE(
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%dT%H:%M:%S', rm.start_timestamp)),
       TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%dT%H:%M:%S', REGEXP_REPLACE(rm.start_timestamp, r'[TZ]?\d{2}:\d{2}$|[+-]\d{2}:\d{2}$|Z$', ''))),
       TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%d %H:%M:%S', rm.start_timestamp)),
       TIMESTAMP(SAFE.PARSE_DATETIME('%Y/%m/%d %H:%M:%S', rm.start_timestamp)),
       TIMESTAMP(SAFE.PARSE_DATETIME('%a %b %d %Y %H:%M:%S', REGEXP_REPLACE(rm.start_timestamp, r' GMT[^ ]*.*$', '')))
     ) AS start_ts,
     COALESCE(
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%dT%H:%M:%S', rm.end_timestamp)),
       TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%dT%H:%M:%S', REGEXP_REPLACE(rm.end_timestamp, r'[TZ]?\d{2}:\d{2}$|[+-]\d{2}:\d{2}$|Z$', ''))),
       TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%d %H:%M:%S', rm.end_timestamp)),
       TIMESTAMP(SAFE.PARSE_DATETIME('%Y/%m/%d %H:%M:%S', rm.end_timestamp)),
@@ -70,6 +72,7 @@ WITH base AS (
   LEFT JOIN `shopper-datalakehouse-prod.operations.picking_and_packing_pedidos_n2` AS p ON p.order_code = JSON_VALUE(rm.details, '$.order_code')
   LEFT JOIN `shopper-datalakehouse-prod.shared.purchase_automation_produtos_n3` AS prod ON prod.sku_id = SAFE_CAST(JSON_VALUE(rm.details, '$.sku_id') AS INT64)
   WHERE COALESCE(
+      TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%dT%H:%M:%S', rm.start_timestamp)),
       TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%dT%H:%M:%S', REGEXP_REPLACE(rm.start_timestamp, r'[TZ]?\d{2}:\d{2}$|[+-]\d{2}:\d{2}$|Z$', ''))),
       TIMESTAMP(SAFE.PARSE_DATETIME('%Y-%m-%d %H:%M:%S', rm.start_timestamp)),
       TIMESTAMP(SAFE.PARSE_DATETIME('%Y/%m/%d %H:%M:%S', rm.start_timestamp)),
@@ -79,13 +82,13 @@ WITH base AS (
 
 base2 AS (
   SELECT b.*,
-    DATETIME(b.start_ts) AS activity_start,
-    DATETIME(b.end_ts)   AS activity_end,
+    DATETIME(b.start_ts, 'America/Sao_Paulo') AS activity_start,
+    DATETIME(b.end_ts,   'America/Sao_Paulo') AS activity_end,
     TIMESTAMP_DIFF(b.end_ts, b.start_ts, SECOND) / 3600.0 AS activity_worked_hours,
     DATE(CASE
-      WHEN EXTRACT(HOUR FROM DATETIME(b.start_ts)) < 6
-        THEN DATETIME_SUB(DATETIME(b.start_ts), INTERVAL 1 DAY)
-      ELSE DATETIME(b.start_ts)
+      WHEN EXTRACT(HOUR FROM DATETIME(b.start_ts, 'America/Sao_Paulo')) < 6
+        THEN DATETIME_SUB(DATETIME(b.start_ts, 'America/Sao_Paulo'), INTERVAL 1 DAY)
+      ELSE DATETIME(b.start_ts, 'America/Sao_Paulo')
     END) AS reference_date
   FROM base b WHERE b.start_ts IS NOT NULL AND b.end_ts IS NOT NULL
 ),
@@ -300,11 +303,11 @@ novo_inventario AS (
 ),
 
 c_reposicao AS (
-  SELECT SAFE_CAST(r.cod_matricula AS INT64), CAST(r.user_name AS STRING), DATETIME(r.start_ts), DATETIME(r.end_ts), CAST(r.source_system AS STRING), 'PROMOTORA', CAST(r.score_movimentacao AS FLOAT64), CAST(NULL AS STRING), CAST(r.sku_id AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), CAST(r.descricao_atividade AS STRING), CAST(r.restock_list_level AS STRING), CAST(r.restock_list_type AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(r.score_movimentacao AS FLOAT64), CAST(r.score_movimentacao AS FLOAT64)*SAFE_CAST(pm.score_factor AS FLOAT64), TIMESTAMP_DIFF(r.end_ts,r.start_ts,SECOND)/3600.0,
+  SELECT SAFE_CAST(r.cod_matricula AS INT64), CAST(r.user_name AS STRING), DATETIME(r.start_ts, 'America/Sao_Paulo'), DATETIME(r.end_ts, 'America/Sao_Paulo'), CAST(r.source_system AS STRING), 'PROMOTORA', CAST(r.score_movimentacao AS FLOAT64), CAST(NULL AS STRING), CAST(r.sku_id AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), CAST(r.descricao_atividade AS STRING), CAST(r.restock_list_level AS STRING), CAST(r.restock_list_type AS STRING), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(r.score_movimentacao AS FLOAT64), CAST(r.score_movimentacao AS FLOAT64)*SAFE_CAST(pm.score_factor AS FLOAT64), TIMESTAMP_DIFF(r.end_ts,r.start_ts,SECOND)/3600.0,
     DATE(CASE
-      WHEN EXTRACT(HOUR FROM DATETIME(r.start_ts)) < 6
-        THEN DATETIME_SUB(DATETIME(r.start_ts), INTERVAL 1 DAY)
-      ELSE DATETIME(r.start_ts)
+      WHEN EXTRACT(HOUR FROM DATETIME(r.start_ts, 'America/Sao_Paulo')) < 6
+        THEN DATETIME_SUB(DATETIME(r.start_ts, 'America/Sao_Paulo'), INTERVAL 1 DAY)
+      ELSE DATETIME(r.start_ts, 'America/Sao_Paulo')
     END),
     CAST(NULL AS STRING), CAST([] AS ARRAY<INT64>)
   FROM (SELECT *, COALESCE(SAFE_CAST(start_timestamp AS TIMESTAMP),SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',start_timestamp),SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(start_timestamp,r' \([^)]*\)$',''))) AS start_ts, COALESCE(SAFE_CAST(end_timestamp AS TIMESTAMP),SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',end_timestamp),SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(end_timestamp,r' \([^)]*\)$',''))) AS end_ts FROM `shopper-datalakehouse-qa.Ranking_Performance.curated_reposicao` WHERE start_timestamp IS NOT NULL AND end_timestamp IS NOT NULL) AS r
@@ -312,11 +315,11 @@ c_reposicao AS (
 ),
 
 c_recebimento AS (
-  SELECT SAFE_CAST(r.cod_matricula AS INT64), CAST(r.user_name AS STRING), DATETIME(r.start_ts), DATETIME(r.end_ts), CAST(r.source_system AS STRING), 'PROMOTORA', CAST(r.score_recebimento AS FLOAT64), CAST(NULL AS STRING), CAST(r.sku_id AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), CAST(r.descricao_atividade AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(r.categoria_recebimento AS STRING), CAST(r.e_fresh AS BOOL), CAST(r.armazenamento_sugerido AS STRING), CAST(NULL AS STRING), CAST(r.score_recebimento AS FLOAT64), CAST(r.score_recebimento AS FLOAT64)*SAFE_CAST(pm.score_factor AS FLOAT64), TIMESTAMP_DIFF(r.end_ts,r.start_ts,SECOND)/3600.0,
+  SELECT SAFE_CAST(r.cod_matricula AS INT64), CAST(r.user_name AS STRING), DATETIME(r.start_ts, 'America/Sao_Paulo'), DATETIME(r.end_ts, 'America/Sao_Paulo'), CAST(r.source_system AS STRING), 'PROMOTORA', CAST(r.score_recebimento AS FLOAT64), CAST(NULL AS STRING), CAST(r.sku_id AS INT64), CAST(NULL AS BOOL), CAST(NULL AS INT64), CAST(r.descricao_atividade AS STRING), CAST(NULL AS STRING), CAST(NULL AS STRING), CAST(r.categoria_recebimento AS STRING), CAST(r.e_fresh AS BOOL), CAST(r.armazenamento_sugerido AS STRING), CAST(NULL AS STRING), CAST(r.score_recebimento AS FLOAT64), CAST(r.score_recebimento AS FLOAT64)*SAFE_CAST(pm.score_factor AS FLOAT64), TIMESTAMP_DIFF(r.end_ts,r.start_ts,SECOND)/3600.0,
     DATE(CASE
-      WHEN EXTRACT(HOUR FROM DATETIME(r.start_ts)) < 6
-        THEN DATETIME_SUB(DATETIME(r.start_ts), INTERVAL 1 DAY)
-      ELSE DATETIME(r.start_ts)
+      WHEN EXTRACT(HOUR FROM DATETIME(r.start_ts, 'America/Sao_Paulo')) < 6
+        THEN DATETIME_SUB(DATETIME(r.start_ts, 'America/Sao_Paulo'), INTERVAL 1 DAY)
+      ELSE DATETIME(r.start_ts, 'America/Sao_Paulo')
     END),
     CAST(r.batch_id AS STRING), CAST([] AS ARRAY<INT64>)
   FROM (SELECT *, COALESCE(SAFE_CAST(start_timestamp AS TIMESTAMP),SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',start_timestamp),SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(start_timestamp,r' \([^)]*\)$',''))) AS start_ts, COALESCE(SAFE_CAST(end_timestamp AS TIMESTAMP),SAFE.PARSE_TIMESTAMP('%Y/%m/%d %H:%M:%S',end_timestamp),SAFE.PARSE_TIMESTAMP('%a %b %d %Y %H:%M:%S GMT%z',REGEXP_REPLACE(end_timestamp,r' \([^)]*\)$',''))) AS end_ts FROM `shopper-datalakehouse-qa.Ranking_Performance.curated_recebimento` WHERE start_timestamp IS NOT NULL AND end_timestamp IS NOT NULL) AS r
@@ -327,8 +330,8 @@ c_lote AS (
   SELECT
     SAFE_CAST(l.cod_matricula AS INT64),
     CAST(l.user_name AS STRING),
-    DATETIME(l.end_ts),
-    DATETIME(l.end_ts),
+    DATETIME(l.end_ts, 'America/Sao_Paulo'),
+    DATETIME(l.end_ts, 'America/Sao_Paulo'),
     'MOVIMENTACAO_LOTE',
     'PROMOTORA',
     CAST(l.score_movimentacao AS FLOAT64),
@@ -347,9 +350,9 @@ c_lote AS (
     CAST(l.score_movimentacao AS FLOAT64) * 1.0,
     CAST(NULL AS FLOAT64),
     DATE(CASE
-      WHEN EXTRACT(HOUR FROM DATETIME(l.end_ts)) < 6
-        THEN DATETIME_SUB(DATETIME(l.end_ts), INTERVAL 1 DAY)
-      ELSE DATETIME(l.end_ts)
+      WHEN EXTRACT(HOUR FROM DATETIME(l.end_ts, 'America/Sao_Paulo')) < 6
+        THEN DATETIME_SUB(DATETIME(l.end_ts, 'America/Sao_Paulo'), INTERVAL 1 DAY)
+      ELSE DATETIME(l.end_ts, 'America/Sao_Paulo')
     END),
     CAST(l.batch_id AS STRING),
     CAST([] AS ARRAY<INT64>)
@@ -545,4 +548,8 @@ WHERE eu.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 
         ON pr.sku_id = s
       WHERE UPPER(pr.sku_name) LIKE 'CHOCOLATE%'
     )
-  );
+  )
+QUALIFY ROW_NUMBER() OVER (
+  PARTITION BY eu.registration_number, eu.reference_date, eu.activity_start, eu.source_system, eu.metric_description
+  ORDER BY eu.points DESC
+) = 1;
