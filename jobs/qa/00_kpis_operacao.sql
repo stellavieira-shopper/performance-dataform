@@ -46,7 +46,18 @@ BEGIN
   FROM `shopper-datalakehouse-qa.Ranking_Performance.FEEDBACK ERROS`
   WHERE COALESCE(SAFE.PARSE_DATE('%d/%m/%Y', SUBSTR(TRIM(DATA_ADICAO_PLANILHA), 1, 10)),
                   SAFE.PARSE_DATE('%Y-%m-%d', SUBSTR(TRIM(DATA_ADICAO_PLANILHA), 1, 10)))
-        BETWEEN v_start_date AND v_end_date;
+        BETWEEN v_start_date AND v_end_date
+
+  UNION DISTINCT
+
+  -- Rupturas de stock não justificadas até sexta 14h após o fechamento do ranking
+  SELECT DISTINCT
+    SAFE_CAST(matricula AS STRING) AS MATRICULA,
+    'RUPTURA' AS IMPACTO_ERRO,
+    'RUPTURAS_STOCK' AS ORIGEM
+  FROM `shopper-datalakehouse-qa.Ranking_Performance.vw_rupturas_zeramento`
+  WHERE sexta_fechamento = DATE_ADD(v_end_date, INTERVAL 1 DAY)
+    AND matricula IS NOT NULL;
 
   -- 3. BASE UNIFICADA
   CREATE OR REPLACE TABLE `shopper-datalakehouse-qa.Ranking_Performance.KPIs_OPERAÇÃO` AS
@@ -199,6 +210,8 @@ BEGIN
         )
 
       -- 2. Ruptura ou Perda
+      WHEN IMPACTO_ERRO = 'RUPTURA' AND ORIGEM = 'RUPTURAS_STOCK'
+        THEN 'VALOR DA BONIFICAÇÃO ZERADO. Foi identificada a decisão de ruptura em um item com estoque mapeado. Valide junto à sua coordenação.'
       WHEN IMPACTO_ERRO = 'RUPTURA'
         THEN 'VALOR DA BONIFICAÇÃO ZERADO DEVIDO AO COLABORADOR TER DADO RUPTURA EM UM SKU MAPEADO EM ESTOQUE. CONSULTE O FEEDBACK DE ERROS PARA DETALHES.'
       WHEN IMPACTO_ERRO = 'PERDA'
