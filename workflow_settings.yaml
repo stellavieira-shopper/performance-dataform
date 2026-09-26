@@ -1,0 +1,4 @@
+defaultProject: ${GoogleProjectID}
+defaultLocation: southamerica-east1
+defaultDataset: operacao
+defaultAssertionDataset: operacao_assertions
