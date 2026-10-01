@@ -548,6 +548,6 @@ WHERE eu.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 
     )
   )
 QUALIFY ROW_NUMBER() OVER (
-  PARTITION BY eu.registration_number, eu.reference_date, eu.activity_start, eu.source_system, eu.metric_description
+  PARTITION BY eu.registration_number, eu.reference_date, eu.activity_start, eu.source_system, eu.metric_description, eu.sku_id
   ORDER BY eu.points DESC
 ) = 1;
