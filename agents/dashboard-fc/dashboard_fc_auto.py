@@ -991,7 +991,11 @@ def main():
     args = parser.parse_args()
 
     if args.data:
-        data = args.data
+        raw = args.data.strip()
+        if "-" in raw:
+            data = datetime.strptime(raw, "%Y-%m-%d").strftime("%d/%m/%Y")
+        else:
+            data = raw
     else:
         hoje = datetime.today().date()
         # 3 = quinta-feira (weekday: seg=0 … dom=6)
