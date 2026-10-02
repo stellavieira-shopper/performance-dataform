@@ -537,7 +537,7 @@ LEFT JOIN pesos_turno_cache AS pt ON UPPER(TRIM(
 WHERE eu.reference_date >= DATE_SUB(CURRENT_DATE('America/Sao_Paulo'), INTERVAL 10 DAY)
   AND NOT (
     org.fc = 'FC2'
-    AND eu.reference_date BETWEEN '2026-08-28' AND '2026-09-03'
+    AND eu.reference_date BETWEEN '2026-09-25' AND '2026-10-01'
     AND eu.metric_description = 'ITENS INCLUIDOS'
     AND EXISTS (
       SELECT 1
