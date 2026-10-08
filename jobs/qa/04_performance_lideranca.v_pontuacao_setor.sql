@@ -189,6 +189,7 @@ BEGIN
         OR UPPER(TRIM(metric_description)) LIKE '%PÁGINA PRIORIDADE%'
         OR UPPER(TRIM(metric_description)) LIKE '%REPOSIÇÃO%'
         OR UPPER(TRIM(metric_description)) LIKE '%REPOSICAO%'
+        OR UPPER(TRIM(metric_description)) LIKE '%CHECK DE RESERVA%'
         OR UPPER(TRIM(metric_description)) IN (
           'ERRO DE FIFO','ERRO DE MOVIMENTAÇÃO','ERRO DE REPOSIÇÃO',
           'ERRO EXECUÇÃO DE PROCESSO','PERDA',
@@ -219,7 +220,12 @@ BEGIN
 
   CREATE OR REPLACE TEMP TABLE tmp_ResumoGeral AS
   SELECT
-    pu.FC, pu.TURNO, pu.SETOR,
+    pu.FC, pu.TURNO,
+    -- REPOSIÇÃO e RECEBIMENTO são tratados como um único grupo
+    CASE
+      WHEN pu.SETOR IN ('RECEBIMENTO','REPOSICAO') THEN 'REPOSIÇÃO'
+      ELSE pu.SETOR
+    END AS SETOR,
     CASE
       WHEN pu.SETOR IN ('RECEBIMENTO','REPOSIÇÃO','REPOSICAO','PICKING','FRACIONAMENTO') THEN pu.AREA
       WHEN pu.SETOR IN ('EXPEDIÇÃO','PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO') THEN 'GERAL'
@@ -233,10 +239,14 @@ BEGIN
   JOIN tmp_GlobalRanking rk ON pu.MATRICULA = rk.MATRICULA
   LEFT JOIN tmp_Pontuacao_Setor_Base ps
     ON pu.MATRICULA = ps.MATRICULA
-   AND ps.SETOR_ATIVIDADE = CASE
-     WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
-     ELSE pu.SETOR
-   END
+   AND (
+     -- REPOSIÇÃO e RECEBIMENTO compartilham métricas de ambos os setores
+     (pu.SETOR IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND ps.SETOR_ATIVIDADE IN ('REPOSIÇÃO','RECEBIMENTO'))
+     OR (pu.SETOR NOT IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND ps.SETOR_ATIVIDADE = CASE
+       WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
+       ELSE pu.SETOR
+     END)
+   )
   WHERE pu.ATRIBUICAO NOT LIKE '%FISCAL%'
     AND pu.ATRIBUICAO NOT LIKE '%SUPERVISOR%'
   GROUP BY 1, 2, 3, 4;
@@ -327,10 +337,13 @@ BEGIN
     LEFT JOIN tmp_MaxGlobal mg ON pu.FC = mg.FC
     LEFT JOIN tmp_Pontuacao_Setor_Base ps_f
       ON pu.MATRICULA = ps_f.MATRICULA
-     AND ps_f.SETOR_ATIVIDADE = CASE
-       WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
-       ELSE pu.SETOR
-     END
+     AND (
+       (pu.SETOR IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND ps_f.SETOR_ATIVIDADE IN ('REPOSIÇÃO','RECEBIMENTO'))
+       OR (pu.SETOR NOT IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND ps_f.SETOR_ATIVIDADE = CASE
+         WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
+         ELSE pu.SETOR
+       END)
+     )
     LEFT JOIN tmp_DadosAfastamentos af ON pu.MATRICULA = af.MATRICULA
     LEFT JOIN tmp_DadosPonto dp ON pu.MATRICULA = dp.MATRICULA
     LEFT JOIN tmp_DadosMedidas dm ON pu.MATRICULA = dm.MATRICULA
@@ -338,7 +351,11 @@ BEGIN
     LEFT JOIN tmp_ResumoGeral tr
       ON pu.FC = tr.FC
      AND pu.TURNO = tr.TURNO
-     AND pu.SETOR = tr.SETOR
+     AND (
+       -- REPOSIÇÃO e RECEBIMENTO usam o grupo unificado 'REPOSIÇÃO' em tmp_ResumoGeral
+       (pu.SETOR IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND tr.SETOR = 'REPOSIÇÃO')
+       OR (pu.SETOR NOT IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND pu.SETOR = tr.SETOR)
+     )
      AND (
        CASE
          WHEN pu.SETOR IN ('RECEBIMENTO','REPOSIÇÃO','REPOSICAO','PICKING','FRACIONAMENTO') THEN pu.AREA
@@ -498,6 +515,7 @@ BEGIN
       pu.FC, pu.TURNO,
       CASE
         WHEN pu.SETOR IN ('EXPEDIÇÃO','PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO') THEN 'EXPEDICAO_UNIFICADA'
+        WHEN pu.SETOR IN ('RECEBIMENTO','REPOSICAO') THEN 'REPOSIÇÃO'
         ELSE pu.SETOR
       END AS SETOR,
       CASE
@@ -512,10 +530,13 @@ BEGIN
     JOIN tmp_GlobalRanking rk ON pu.MATRICULA = rk.MATRICULA
     LEFT JOIN tmp_Pontuacao_Setor_Base ps
       ON pu.MATRICULA = ps.MATRICULA
-     AND ps.SETOR_ATIVIDADE = CASE
-       WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
-       ELSE pu.SETOR
-     END
+     AND (
+       (pu.SETOR IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND ps.SETOR_ATIVIDADE IN ('REPOSIÇÃO','RECEBIMENTO'))
+       OR (pu.SETOR NOT IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND ps.SETOR_ATIVIDADE = CASE
+         WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
+         ELSE pu.SETOR
+       END)
+     )
     WHERE pu.ATRIBUICAO NOT LIKE '%SUPERVISOR%'
       AND NOT (
         pu.ATRIBUICAO LIKE '%FISCAL%'
@@ -527,6 +548,7 @@ BEGIN
       fc AS FC, turno AS TURNO,
       CASE
         WHEN SETOR IN ('EXPEDIÇÃO','PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO') THEN 'EXPEDICAO_UNIFICADA'
+        WHEN SETOR IN ('RECEBIMENTO','REPOSICAO') THEN 'REPOSIÇÃO'
         ELSE SETOR
       END AS SETOR,
       CASE
@@ -596,10 +618,13 @@ BEGIN
     LEFT JOIN tmp_MaxGlobal mg ON pu.FC = mg.FC
     LEFT JOIN tmp_Pontuacao_Setor_Base ps_sup
       ON pu.MATRICULA = ps_sup.MATRICULA
-     AND ps_sup.SETOR_ATIVIDADE = CASE
-       WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
-       ELSE pu.SETOR
-     END
+     AND (
+       (pu.SETOR IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND ps_sup.SETOR_ATIVIDADE IN ('REPOSIÇÃO','RECEBIMENTO'))
+       OR (pu.SETOR NOT IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND ps_sup.SETOR_ATIVIDADE = CASE
+         WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
+         ELSE pu.SETOR
+       END)
+     )
     LEFT JOIN tmp_DadosAfastamentos af ON pu.MATRICULA = af.MATRICULA
     LEFT JOIN tmp_DadosPonto dp ON pu.MATRICULA = dp.MATRICULA
     LEFT JOIN tmp_DadosMedidas dm ON pu.MATRICULA = dm.MATRICULA
@@ -610,6 +635,7 @@ BEGIN
      AND (
        CASE
          WHEN pu.SETOR IN ('EXPEDIÇÃO','PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO') THEN 'EXPEDICAO_UNIFICADA'
+         WHEN pu.SETOR IN ('RECEBIMENTO','REPOSICAO') THEN 'REPOSIÇÃO'
          ELSE pu.SETOR
        END
      ) = tr.SETOR
