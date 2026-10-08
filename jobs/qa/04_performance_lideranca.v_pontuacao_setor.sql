@@ -220,12 +220,7 @@ BEGIN
 
   CREATE OR REPLACE TEMP TABLE tmp_ResumoGeral AS
   SELECT
-    pu.FC, pu.TURNO,
-    -- REPOSIÇÃO e RECEBIMENTO são tratados como um único grupo
-    CASE
-      WHEN pu.SETOR IN ('RECEBIMENTO','REPOSICAO') THEN 'REPOSIÇÃO'
-      ELSE pu.SETOR
-    END AS SETOR,
+    pu.FC, pu.TURNO, pu.SETOR,
     CASE
       WHEN pu.SETOR IN ('RECEBIMENTO','REPOSIÇÃO','REPOSICAO','PICKING','FRACIONAMENTO') THEN pu.AREA
       WHEN pu.SETOR IN ('EXPEDIÇÃO','PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO') THEN 'GERAL'
@@ -351,11 +346,7 @@ BEGIN
     LEFT JOIN tmp_ResumoGeral tr
       ON pu.FC = tr.FC
      AND pu.TURNO = tr.TURNO
-     AND (
-       -- REPOSIÇÃO e RECEBIMENTO usam o grupo unificado 'REPOSIÇÃO' em tmp_ResumoGeral
-       (pu.SETOR IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND tr.SETOR = 'REPOSIÇÃO')
-       OR (pu.SETOR NOT IN ('REPOSIÇÃO','REPOSICAO','RECEBIMENTO') AND pu.SETOR = tr.SETOR)
-     )
+     AND pu.SETOR = tr.SETOR
      AND (
        CASE
          WHEN pu.SETOR IN ('RECEBIMENTO','REPOSIÇÃO','REPOSICAO','PICKING','FRACIONAMENTO') THEN pu.AREA
@@ -515,7 +506,6 @@ BEGIN
       pu.FC, pu.TURNO,
       CASE
         WHEN pu.SETOR IN ('EXPEDIÇÃO','PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO') THEN 'EXPEDICAO_UNIFICADA'
-        WHEN pu.SETOR IN ('RECEBIMENTO','REPOSICAO') THEN 'REPOSIÇÃO'
         ELSE pu.SETOR
       END AS SETOR,
       CASE
@@ -548,7 +538,6 @@ BEGIN
       fc AS FC, turno AS TURNO,
       CASE
         WHEN SETOR IN ('EXPEDIÇÃO','PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO') THEN 'EXPEDICAO_UNIFICADA'
-        WHEN SETOR IN ('RECEBIMENTO','REPOSICAO') THEN 'REPOSIÇÃO'
         ELSE SETOR
       END AS SETOR,
       CASE
@@ -635,7 +624,6 @@ BEGIN
      AND (
        CASE
          WHEN pu.SETOR IN ('EXPEDIÇÃO','PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO') THEN 'EXPEDICAO_UNIFICADA'
-         WHEN pu.SETOR IN ('RECEBIMENTO','REPOSICAO') THEN 'REPOSIÇÃO'
          ELSE pu.SETOR
        END
      ) = tr.SETOR
