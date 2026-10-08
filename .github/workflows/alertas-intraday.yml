@@ -1,0 +1,59 @@
+name: Alertas Intraday — Performance
+
+# 07:00 BRT = 10:00 UTC  → só detecta, grava no BQ
+# 15:00 BRT = 18:00 UTC  → só detecta, grava no BQ
+# 23:00 BRT = 02:00 UTC  → detecta + consolida + envia Slack
+
+on:
+  schedule:
+    - cron: '0 10 * * *'   # 07:00 BRT
+    - cron: '0 18 * * *'   # 15:00 BRT
+    - cron: '0 2  * * *'   # 23:00 BRT (dia seguinte UTC)
+
+  workflow_dispatch:
+    inputs:
+      consolidar:
+        description: 'Enviar resumo Slack agora? (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  alertas:
+    name: Alertas Intraday
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      BQ_DRIVE_CLIENT_ID:     ${{ secrets.BQ_DRIVE_CLIENT_ID }}
+      BQ_DRIVE_CLIENT_SECRET: ${{ secrets.BQ_DRIVE_CLIENT_SECRET }}
+      BQ_DRIVE_REFRESH_TOKEN: ${{ secrets.BQ_DRIVE_REFRESH_TOKEN }}
+      BQ_PROJECT:             shopper-datalakehouse-qa
+      SLACK_BOT_TOKEN:        ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL:          D093C1WN0ET
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências
+        run: |
+          pip install --quiet \
+            google-auth \
+            google-cloud-bigquery \
+            db-dtypes \
+            requests
+
+      - name: Detectar alertas (todas as rodadas)
+        run: python scripts/alertas_intraday.py --detectar
+
+      # Só consolida e envia Slack na rodada das 23h (02:00 UTC) ou manual
+      - name: Consolidar e enviar Slack
+        if: |
+          github.event.schedule == '0 2 * * *' ||
+          github.event.inputs.consolidar == 'true'
+        run: python scripts/alertas_intraday.py --consolidar
