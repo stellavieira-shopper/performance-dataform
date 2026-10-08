@@ -178,7 +178,8 @@ def escrever_sheet(ws, header: list, rows: list):
 def exportar(data_inicio: date, data_fim: date, sufixo: str = ""):
     drive, sheets_svc, gc, _ = get_clients()
 
-    nome_pasta = f"Performance {data_inicio.day:02d}/{data_inicio.month:02d} a {data_fim.day:02d}/{data_fim.month:02d}{sufixo}"
+    semana = data_inicio.isocalendar()[1]
+    nome_pasta = f"Semana {semana} - {data_inicio.day:02d}/{data_inicio.month:02d} a {data_fim.day:02d}/{data_fim.month:02d}{sufixo}"
     folder_id  = criar_ou_buscar_pasta(drive, nome_pasta, DRIVE_PERFORMANCE_FOLDER_ID)
 
     di = data_inicio.isoformat()
