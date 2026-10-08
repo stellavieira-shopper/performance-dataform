@@ -24,6 +24,13 @@ on:
             06  → Tabela Consolidada Ranking
         required: false
         default: 'all'
+      lideranca_versao:
+        description: |
+          Versão do job 04 (só aplica quando job=04 ou job=all):
+            nova   → pontuacao_final do ranking (padrão)
+            setor  → classificação por atividade/setor (versão anterior)
+        required: false
+        default: 'nova'
 
 jobs:
   pipeline:
@@ -109,8 +116,13 @@ jobs:
           github.event.inputs.job == 'all'  ||
           github.event.inputs.job == '04'
         run: |
-          echo "▶ Rodando 04_performance_lideranca.sql"
-          python scripts/run_bq_query.py jobs/qa/04_performance_lideranca.sql
+          if [ "${{ github.event.inputs.lideranca_versao }}" = "setor" ]; then
+            ARQUIVO="jobs/qa/04_performance_lideranca.v_pontuacao_setor.sql"
+          else
+            ARQUIVO="jobs/qa/04_performance_lideranca.sql"
+          fi
+          echo "▶ Rodando $ARQUIVO"
+          python scripts/run_bq_query.py "$ARQUIVO"
 
       # ─────────────────────────────────────────────
       # 05 — Performance Não Medíveis
