@@ -1,4 +1,4 @@
--- ██████████ SCRIPT FINAL UNIFICADO: PERFORMANCE LIDERANÇA + DETALHADA ██████████
+﻿-- ██████████ SCRIPT FINAL UNIFICADO: PERFORMANCE LIDERANÇA + DETALHADA ██████████
 BEGIN
 
   DECLARE v_start_date DATE;
@@ -225,12 +225,18 @@ BEGIN
       WHEN pu.SETOR IN ('EXPEDIÇÃO','PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO') THEN 'GERAL'
       ELSE 'GERAL'
     END AS AREA,
-    AVG(COALESCE(rk.pts_reais, 0)) AS media_pts,
-    SUM(COALESCE(rk.pts_reais, 0)) AS soma_pts,
+    AVG(COALESCE(ps.pts_setor, 0)) AS media_pts,
+    SUM(COALESCE(ps.pts_setor, 0)) AS soma_pts,
     COUNT(*) AS total_colabs,
     COUNTIF(rk.status_ranking = 'BONIFICADO' AND rk.mult_kpi > 0) AS total_bonificados
   FROM tmp_PessoasUnicas pu
   JOIN tmp_GlobalRanking rk ON pu.MATRICULA = rk.MATRICULA
+  LEFT JOIN tmp_Pontuacao_Setor_Base ps
+    ON pu.MATRICULA = ps.MATRICULA
+   AND ps.SETOR_ATIVIDADE = CASE
+     WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
+     ELSE pu.SETOR
+   END
   WHERE pu.ATRIBUICAO NOT LIKE '%FISCAL%'
     AND pu.ATRIBUICAO NOT LIKE '%SUPERVISOR%'
   GROUP BY 1, 2, 3, 4;
@@ -263,19 +269,26 @@ BEGIN
   )
   SELECT
     m.fiscal_nome,
-    AVG(COALESCE(r.pts_reais, 0)) AS media_pts,
-    SUM(COALESCE(r.pts_reais, 0)) AS soma_pts,
+    AVG(COALESCE(ps.pts_setor, 0)) AS media_pts,
+    SUM(COALESCE(ps.pts_setor, 0)) AS soma_pts,
     COUNT(DISTINCT m.colab_matricula) AS total_colabs,
     COUNTIF(r.status_ranking = 'BONIFICADO' AND r.mult_kpi > 0) AS total_bonificados
   FROM MapeamentoFinal m
   LEFT JOIN tmp_GlobalRanking r ON m.colab_matricula = r.MATRICULA
+  LEFT JOIN tmp_PessoasUnicas pu ON m.colab_matricula = pu.MATRICULA
+  LEFT JOIN tmp_Pontuacao_Setor_Base ps
+    ON m.colab_matricula = ps.MATRICULA
+   AND ps.SETOR_ATIVIDADE = CASE
+     WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
+     ELSE pu.SETOR
+   END
   GROUP BY 1;
 
   CREATE OR REPLACE TEMP TABLE tmp_Fiscais_Calculados_Final AS
   WITH PreCalc AS (
     SELECT
       pu.*,
-      COALESCE(rk.pts_reais, 0) AS individual_pts,
+      COALESCE(ps_f.pts_setor, 0) AS individual_pts,
       COALESCE(rk.mult_kpi, kc.kpi_val, 1.0) AS mult_kpi,
       COALESCE(rk.kpi_obs, kc.kpi_obs) AS kpi_obs,
       COALESCE(dp.FALTAS, rk.FALTAS, 0) AS FALTAS,
@@ -312,6 +325,12 @@ BEGIN
     LEFT JOIN tmp_GlobalRanking rk ON pu.MATRICULA = rk.MATRICULA
     LEFT JOIN tmp_KPI_Calc kc ON CAST(pu.MATRICULA AS STRING) = kc.MATRICULA
     LEFT JOIN tmp_MaxGlobal mg ON pu.FC = mg.FC
+    LEFT JOIN tmp_Pontuacao_Setor_Base ps_f
+      ON pu.MATRICULA = ps_f.MATRICULA
+     AND ps_f.SETOR_ATIVIDADE = CASE
+       WHEN pu.SETOR IN ('PRÉ EXPEDIÇÃO','PRÉ-EXPEDIÇÃO','CAMPINAS') THEN 'EXPEDIÇÃO'
+       ELSE pu.SETOR
+     END
     LEFT JOIN tmp_DadosAfastamentos af ON pu.MATRICULA = af.MATRICULA
     LEFT JOIN tmp_DadosPonto dp ON pu.MATRICULA = dp.MATRICULA
     LEFT JOIN tmp_DadosMedidas dm ON pu.MATRICULA = dm.MATRICULA
