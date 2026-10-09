@@ -272,7 +272,7 @@ BEGIN
       WHEN MATRICULA IN ('18986', '19030', '20111', '18939', '18437', '16902', '13793', '13879', '14855', '15478', '13869', '20020', '20004', '20031', '20026', '20029')
       THEN 'Você não atingiu o mínimo de posições nem a acuracidade mínima necessários para pontuar pela atividade de inventário de Gestão de Estoque nesta semana. Valide junto às suas lideranças dentro de Gestão de Estoque.'
       WHEN MATRICULA IN ('19490')
-      THEN 'Você não pontuou pela atividade de inventário de Gestão de Estoque nesta semana por exceder o tempo máximo por contagem. Valide junto às suas lideranças dentro de Gestão de Estoque.'
+      THEN 'Você não pontuou pela atividade de inventário de Gestão de Estoque nesta semana, pois o tempo por contagem esteve acima do esperado. Valide junto às suas lideranças dentro de Gestão de Estoque.'
       -- [/AUTO:ge-obs]
       -- [/AUTO:ge-obs]
 
@@ -283,25 +283,25 @@ BEGIN
       -- [AUTO:setoriais-obs]
       WHEN AREA = 'CAMPINAS' THEN NULL
       WHEN SETOR_ORIGINAL IN ('EXPEDIÇÃO', 'EXPEDICAO') AND FC = 'FC1' AND TURNO IN ('MANHÃ', 'TARDE')
-      THEN '-10% na Bonificação. Ocorreu uma queda no resultado de tempo de carregamento SMD nos turnos da manhã e tarde. O indicador ficou distante da meta, mesmo desconsiderando o impacto das cargas de leva B.'
+      THEN '-10% na Bonificação. O resultado do tempo de carregamento SMD ficou distante da meta. Mesmo desconsiderando as cargas de leva B alocadas, o indicador permaneceria abaixo do esperado.'
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC1'
-      THEN '-30% na Bonificação. O indicador de completos mercearia apresentou quedas recorrentes nas últimas semanas. O desempenho se mantém baixo e distante da meta.'
+      THEN '-30% na Bonificação. O indicador de completos mercearia apresentou quedas recorrentes e segue distante da meta. A performance na reposição é crucial para reverter o resultado e o indicador de rupturas.'
       WHEN (SETOR_ORIGINAL LIKE '%PRÉ%EXPED%' OR SETOR_ORIGINAL LIKE '%PRE%EXPED%') AND FC = 'FC2' AND TURNO = 'NOITE'
-      THEN '-15% na Bonificação. O tempo de término da leva A do turno da noite piorou, impactando a chegada em Campinas. O tempo de carregamento de SMD e HR também ficou distante da meta.'
+      THEN '-15% na Bonificação. O tempo para o término da leva A do turno da noite foi o principal ponto de atenção da semana, impactado pelo aumento no tempo de chegada do caminhão em Campinas. O tempo de carregamento dos SMDs, HR e Fiorino também se mantiveram como pontos de atenção.'
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'MANHÃ'
-      THEN '-20% na Bonificação. O resultado de completos mercearia do turno da manhã ficou distante da meta, impactado diretamente pela oscilação na reposição. É preciso manter a exigência e a consistência na execução das listas.'
+      THEN '-20% na Bonificação. O KPI de completos mercearia do turno da manhã ficou distante da meta, impactado pela oscilação da reposição. É necessário manter a consistência na execução das listas para reverter o resultado.'
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'TARDE'
-      THEN '-20% na Bonificação. A oscilação na reposição do turno da tarde impactou o indicador de completos mercearia, que ficou distante da meta. Precisamos manter a exigência e a consistência na execução das listas para reverter o resultado.'
+      THEN '-20% na Bonificação. O turno da TARDE teve um desempenho nos pedidos completos de mercearia distante da meta, com a reposição oscilando durante a semana. A execução das listas precisa de maior consistência para atingirmos o desempenho ideal.'
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO = 'NOITE'
-      THEN '-20% na Bonificação. O indicador de completos mercearia do turno da noite ficou distante da meta, impactado pela oscilação na reposição. A consistência na execução das listas é fundamental para recuperar o resultado.'
+      THEN '-20% na Bonificação. O resultado de completos mercearia do turno da noite ficou abaixo da meta, impactado pela oscilação na reposição. O desempenho permanece distante do ideal, exigindo maior consistência e rigor na execução das listas.'
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3' AND ATRIBUICAO_ORIGINAL LIKE '%CONGELADO%'
-      THEN '-20% na Bonificação. O resultado de completos fresh ficou abaixo da meta, impactado pelo desempenho da reposição. É preciso maior consistência na execução das listas para que a evolução do setor se reflita no aumento da taxa de pedidos completos.'
+      THEN '-20% na Bonificação. A taxa de completos fresh ficou abaixo do esperado, impactada pelo resultado da reposição. Precisamos de mais consistência na execução das listas para garantir que a evolução da reposição se reflita no aumento da taxa de completos.'
       WHEN SETOR_ORIGINAL IN ('REPOSIÇÃO', 'REPOSICAO') AND AREA = 'FRESH' AND FC = 'FC3' AND ATRIBUICAO_ORIGINAL LIKE '%FLV%'
-      THEN '-25% na Bonificação. O indicador de completos fresh ficou distante da meta devido à baixa eficiência na execução das listas de reposição, o que aumentou as rupturas. É preciso maior consistência e rigor na movimentação dos produtos para garantir a correta execução das listas.'
+      THEN '-25% na Bonificação. O indicador de completos fresh ficou distante da meta devido à baixa eficiência na execução das listas de reposição, resultando em um aumento dos itens não encontrados. É preciso elevar a consistência na movimentação dos produtos para garantir a acuracidade do estoque e melhorar os resultados.'
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'FRESH' AND FC = 'FC3'
-      THEN '-10% na Bonificação. Os erros na conferência e as divergências no mapeamento de lotes impactaram negativamente os indicadores de erros, divergência de estoque e o percentual de pedidos mapeados. Essa performance afeta diretamente os resultados de rupturas não consultadas e completos fresh.'
+      THEN '-10% na Bonificação. Foram identificados erros durante a conferência e divergências no mapeamento dos lotes, o que nos distanciou das metas de pedidos mapeados Fresh e de divergência de estoque. É fundamental maior atenção ao processo para reverter o resultado dos erros e das rupturas.'
       WHEN SETOR_ORIGINAL LIKE '%RECEBIMENTO%' AND AREA = 'MERCEARIA' AND FC = 'FC3' AND TURNO IN ('MANHÃ', 'TARDE')
-      THEN '-10% na Bonificação. Foram identificados erros de conferência e divergências no mapeamento de pedidos nos turnos da manhã e tarde, o que impactou negativamente os indicadores de divergência de estoque. A atenção ao processo é fundamental para melhorarmos os resultados de completos mercearia e rupturas não consultadas.'
+      THEN '-10% na Bonificação. Os turnos da manhã e tarde apresentaram erros na conferência e divergências no mapeamento, impactando o indicador de pedidos mapeados. Essas falhas também mantiveram distantes da meta os resultados de completos mercearia e de divergência de estoque.'
       -- [/AUTO:setoriais-obs]
 
       ELSE NULL
