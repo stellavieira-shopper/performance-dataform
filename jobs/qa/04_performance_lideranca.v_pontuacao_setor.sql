@@ -189,7 +189,8 @@ BEGIN
         OR UPPER(TRIM(metric_description)) LIKE '%PÁGINA PRIORIDADE%'
         OR UPPER(TRIM(metric_description)) LIKE '%REPOSIÇÃO%'
         OR UPPER(TRIM(metric_description)) LIKE '%REPOSICAO%'
-        OR UPPER(TRIM(metric_description)) LIKE '%CHECK DE RESERVA%'
+        OR UPPER(TRIM(metric_description)) LIKE '%CHECK DE ENDEREÇO%'
+        OR UPPER(TRIM(metric_description)) LIKE '%CHECK DE ENDERECO%'
         OR UPPER(TRIM(metric_description)) IN (
           'ERRO DE FIFO','ERRO DE MOVIMENTAÇÃO','ERRO DE REPOSIÇÃO',
           'ERRO EXECUÇÃO DE PROCESSO','PERDA',
