@@ -1,0 +1,43 @@
+-- DDL: mart_bonificacao — resultado final de bônus por colaborador/semana
+-- Projeto: shopper-performance-prod | Dataset: darkstore
+CREATE TABLE IF NOT EXISTS `shopper-performance-prod.darkstore.mart_bonificacao`
+(
+  store_code                         STRING,
+  year_ref                           INT64,
+  week_ref                           INT64,
+  nome                               STRING,
+  turno_bucket                       STRING,
+  funcao_bucket                      STRING,
+  mat                                STRING,
+  assiduidade_any_flag               BOOL,
+  gate_loja_80_flag                  BOOL,
+  gate_foto_flag                     BOOL,
+  taxa_separacao_individual          FLOAT64,
+  taxa_separacao_loja                FLOAT64,
+  taxa_completo_loja                 FLOAT64,
+  taxa_foto_loja                     FLOAT64,
+  rupturas_count                     INT64,
+  faixa_salario                      FLOAT64,
+  multiplo_separacao                 FLOAT64,
+  multiplo_completo                  FLOAT64,
+  valor_obtido_base                  FLOAT64,
+  valor_obtido                       FLOAT64,
+  desconto_ruptura                   FLOAT64,
+  valor_final_pre_gate               FLOAT64,
+  nota_abastecimento_final           FLOAT64,
+  pct_pagamento_tier_abastecimento   FLOAT64,
+  bolso_pedidos                      FLOAT64,
+  bolso_abastecimento                FLOAT64,
+  valor_bonus_pedidos_pre_gate       FLOAT64,
+  valor_bonus_abastecimento_pre_gate FLOAT64,
+  valor_final_bonus                  FLOAT64,
+  erros_normais                      INT64,
+  erros_graves                       INT64,
+  desconto_erros                     FLOAT64,
+  pct_desconto_foto                  FLOAT64,
+  erros_perdas                       INT64,
+  total_perdas                       INT64,
+  taxa_perdas                        FLOAT64,
+  desconto_perdas                    FLOAT64
+)
+PARTITION BY RANGE_BUCKET(year_ref, GENERATE_ARRAY(2024, 2030, 1));
