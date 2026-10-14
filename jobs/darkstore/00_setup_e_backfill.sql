@@ -282,36 +282,39 @@ PARTITION BY RANGE_BUCKET(year_ref, GENERATE_ARRAY(2024, 2030, 1));
 -- (rodar após criar as tabelas acima)
 -- ════════════════════════════════════════════════════════════
 
--- ── 1. raw_sku_classificacao ──────────────────────────────────────────────────
-INSERT INTO `shopper-performance-prod.darkstore.raw_sku_classificacao`
+-- ── 1–8. raw tables — CTAS espelha schema exato do QA (evita erro de colunas) ─
+-- Se a tabela já existir com schema errado, o DROP garante recriação correta.
+
+DROP TABLE IF EXISTS `shopper-performance-prod.darkstore.raw_sku_classificacao`;
+CREATE TABLE `shopper-performance-prod.darkstore.raw_sku_classificacao` AS
 SELECT * FROM `shopper-datalakehouse-qa.performance_darkstore.raw_sku_classificacao`;
 
--- ── 2. raw_pedidos_desconsiderar ──────────────────────────────────────────────
-INSERT INTO `shopper-performance-prod.darkstore.raw_pedidos_desconsiderar`
+DROP TABLE IF EXISTS `shopper-performance-prod.darkstore.raw_pedidos_desconsiderar`;
+CREATE TABLE `shopper-performance-prod.darkstore.raw_pedidos_desconsiderar` AS
 SELECT * FROM `shopper-datalakehouse-qa.performance_darkstore.raw_pedidos_desconsiderar`;
 
--- ── 3. raw_bonificacao_faltas ─────────────────────────────────────────────────
-INSERT INTO `shopper-performance-prod.darkstore.raw_bonificacao_faltas`
+DROP TABLE IF EXISTS `shopper-performance-prod.darkstore.raw_bonificacao_faltas`;
+CREATE TABLE `shopper-performance-prod.darkstore.raw_bonificacao_faltas` AS
 SELECT * FROM `shopper-datalakehouse-qa.performance_darkstore.raw_bonificacao_faltas`;
 
--- ── 4. raw_vel_ref_abastecimento ──────────────────────────────────────────────
-INSERT INTO `shopper-performance-prod.darkstore.raw_vel_ref_abastecimento`
+DROP TABLE IF EXISTS `shopper-performance-prod.darkstore.raw_vel_ref_abastecimento`;
+CREATE TABLE `shopper-performance-prod.darkstore.raw_vel_ref_abastecimento` AS
 SELECT * FROM `shopper-datalakehouse-qa.performance_darkstore.raw_vel_ref_abastecimento`;
 
--- ── 5. raw_erros_clientes_extra ───────────────────────────────────────────────
-INSERT INTO `shopper-performance-prod.darkstore.raw_erros_clientes_extra`
+DROP TABLE IF EXISTS `shopper-performance-prod.darkstore.raw_erros_clientes_extra`;
+CREATE TABLE `shopper-performance-prod.darkstore.raw_erros_clientes_extra` AS
 SELECT * FROM `shopper-datalakehouse-qa.performance_darkstore.raw_erros_clientes_extra`;
 
--- ── 6. raw_foto_desconto ──────────────────────────────────────────────────────
-INSERT INTO `shopper-performance-prod.darkstore.raw_foto_desconto`
+DROP TABLE IF EXISTS `shopper-performance-prod.darkstore.raw_foto_desconto`;
+CREATE TABLE `shopper-performance-prod.darkstore.raw_foto_desconto` AS
 SELECT * FROM `shopper-datalakehouse-qa.performance_darkstore.raw_foto_desconto`;
 
--- ── 7. raw_detratoras_perdas ──────────────────────────────────────────────────
-INSERT INTO `shopper-performance-prod.darkstore.raw_detratoras_perdas`
+DROP TABLE IF EXISTS `shopper-performance-prod.darkstore.raw_detratoras_perdas`;
+CREATE TABLE `shopper-performance-prod.darkstore.raw_detratoras_perdas` AS
 SELECT * FROM `shopper-datalakehouse-qa.performance_darkstore.raw_detratoras_perdas`;
 
--- ── 8. organograma_darks_ext ──────────────────────────────────────────────────
-INSERT INTO `shopper-performance-prod.darkstore.organograma_darks_ext`
+DROP TABLE IF EXISTS `shopper-performance-prod.darkstore.organograma_darks_ext`;
+CREATE TABLE `shopper-performance-prod.darkstore.organograma_darks_ext` AS
 SELECT * FROM `shopper-datalakehouse-qa.performance_darkstore.organograma_darks_ext`;
 
 -- ── 9. int_pedidos_sla ────────────────────────────────────────────────────────
